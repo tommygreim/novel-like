@@ -13,6 +13,7 @@ Build a web-based text editor similar to NovelAI's writing tool that allows user
 4. **Inline Editing**: Edit, add, or remove text before/after generation
 5. **API Key Management**: Secure storage and configuration of OpenRouter API keys
 6. **Model Selection**: Choose from available OpenRouter models via dropdown
+7. **Context Modulation**: Give the user the choice of how much of the existing text to pass in. Default to the entire text.
 
 ### Nice-to-Have (Future Enhancements)
 1. **Generation Settings**: Adjustable parameters (temperature, max tokens, top-p, etc.)
