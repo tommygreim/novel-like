@@ -9,6 +9,7 @@ import { Extension, Mark } from "@tiptap/core";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import DefinitionModal from "@/components/Definition/DefinitionModal";
+import { EmphasisExtension } from "./EmphasisExtension";
 
 // Custom extension for Tab indentation
 const IndentExtension = Extension.create({
@@ -187,7 +188,6 @@ export default function Editor({ scenario }: EditorProps) {
   const generatingTextRef = useRef<string>("");
   const [previousInstructions, setPreviousInstructions] = useState<string[]>([]);
   const [emphasisWords, setEmphasisWords] = useState<string[]>([]);
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const [updateTrigger, setUpdateTrigger] = useState(0);
 
   // Definition state
@@ -205,6 +205,9 @@ export default function Editor({ scenario }: EditorProps) {
       Color,
       IndentExtension,
       FootnoteMark,
+      EmphasisExtension.configure({
+        emphasisWords: [],
+      }),
     ],
     content: "<p>Start writing your story here...</p>",
     editorProps: {
@@ -239,7 +242,7 @@ export default function Editor({ scenario }: EditorProps) {
         node = node.parentNode;
       }
 
-      // Trigger emphasis effect update
+      // Trigger character wrapping for emphasis words
       setUpdateTrigger(prev => prev + 1);
     },
   });
@@ -283,120 +286,45 @@ export default function Editor({ scenario }: EditorProps) {
     }
   }, [editor]);
 
-  // Setup IntersectionObserver for viewport visibility
+  // Update emphasis extension options when emphasis words change
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (editor && emphasisWords.length >= 0) {
+      editor.extensionManager.extensions.forEach((ext) => {
+        if (ext.name === 'emphasis') {
+          ext.options.emphasisWords = emphasisWords;
+        }
+      });
+      // Force update by triggering a no-op transaction
+      editor.view.dispatch(editor.state.tr);
+    }
+  }, [editor, emphasisWords]);
 
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const element = entry.target as HTMLElement;
-          if (entry.isIntersecting) {
-            // Element is visible, enable animation
-            element.querySelectorAll('.emphasis-char').forEach((char) => {
-              (char as HTMLElement).style.animationPlayState = 'running';
-            });
-          } else {
-            // Element is not visible, pause animation
-            element.querySelectorAll('.emphasis-char').forEach((char) => {
-              (char as HTMLElement).style.animationPlayState = 'paused';
-            });
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, []);
-
-  // Apply emphasis effect to matching words
-  const applyEmphasisEffect = () => {
-    if (!editor || emphasisWords.length === 0) return;
+  // Wrap characters in emphasis-word spans for animation
+  const wrapEmphasisCharacters = () => {
+    if (!editor) return;
 
     const editorElement = editor.view.dom;
 
-    // Remove all previous emphasis wrapping
-    editorElement.querySelectorAll('.emphasis-word').forEach((el) => {
-      const text = el.textContent || '';
-      const textNode = document.createTextNode(text);
-      if (el.parentNode) {
-        el.parentNode.replaceChild(textNode, el);
-      }
-    });
+    // Find all emphasis-word spans that haven't been processed
+    const emphasisSpans = editorElement.querySelectorAll('.emphasis-word:not([data-processed])');
 
-    // Process all paragraph elements
-    const paragraphs = editorElement.querySelectorAll('p');
+    emphasisSpans.forEach((span) => {
+      const text = span.textContent || '';
 
-    paragraphs.forEach((paragraph) => {
-      // Get all text nodes in this paragraph
-      const walker = document.createTreeWalker(
-        paragraph,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
+      // Clear the span content
+      span.innerHTML = '';
 
-      const textNodes: Text[] = [];
-      let node: Node | null;
-      while ((node = walker.nextNode())) {
-        textNodes.push(node as Text);
+      // Wrap each character in a span
+      for (let i = 0; i < text.length; i++) {
+        const charSpan = document.createElement('span');
+        charSpan.className = 'emphasis-char';
+        charSpan.textContent = text[i];
+        span.appendChild(charSpan);
       }
 
-      // Process each text node
-      textNodes.forEach((textNode) => {
-        const text = textNode.textContent || '';
-        const words = text.split(/(\s+)/);
-
-        // Check if any words need emphasis
-        const hasEmphasisWord = words.some(word =>
-          emphasisWords.includes(word.toLowerCase().trim())
-        );
-
-        if (!hasEmphasisWord) return;
-
-        // Build replacement fragment
-        const fragment = document.createDocumentFragment();
-
-        words.forEach((word) => {
-          const cleanWord = word.toLowerCase().trim();
-
-          if (cleanWord && emphasisWords.includes(cleanWord)) {
-            // Create wrapper for the word
-            const wordWrapper = document.createElement('span');
-            wordWrapper.className = 'emphasis-word';
-
-            // Wrap each character
-            for (let i = 0; i < word.length; i++) {
-              const charSpan = document.createElement('span');
-              charSpan.className = 'emphasis-char';
-              charSpan.textContent = word[i];
-              wordWrapper.appendChild(charSpan);
-            }
-
-            fragment.appendChild(wordWrapper);
-          } else {
-            // Regular text
-            fragment.appendChild(document.createTextNode(word));
-          }
-        });
-
-        // Replace text node with fragment
-        if (textNode.parentNode) {
-          textNode.parentNode.replaceChild(fragment, textNode);
-        }
-      });
+      // Mark as processed
+      (span as HTMLElement).setAttribute('data-processed', 'true');
     });
-
-    // Set up viewport observation
-    if (observerRef.current) {
-      paragraphs.forEach((p) => {
-        observerRef.current?.observe(p);
-      });
-    }
   };
 
   // Apply underline styling to defined words
@@ -479,16 +407,33 @@ export default function Editor({ scenario }: EditorProps) {
     });
   };
 
-  // Apply emphasis effect when editor content changes or emphasis words change
+  // Watch for emphasis-word spans and wrap their characters
   useEffect(() => {
-    if (editor && emphasisWords.length > 0) {
-      const timeoutId = setTimeout(() => {
-        applyEmphasisEffect();
-      }, 100); // Small delay to let DOM settle
+    if (!editor) return;
 
-      return () => clearTimeout(timeoutId);
-    }
-  }, [updateTrigger, emphasisWords, editor]);
+    const editorElement = editor.view.dom;
+
+    // Initial wrapping
+    const initialTimeout = setTimeout(() => {
+      wrapEmphasisCharacters();
+    }, 50);
+
+    // Set up MutationObserver to watch for new emphasis-word spans
+    const observer = new MutationObserver(() => {
+      wrapEmphasisCharacters();
+    });
+
+    observer.observe(editorElement, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    return () => {
+      clearTimeout(initialTimeout);
+      observer.disconnect();
+    };
+  }, [editor, updateTrigger, emphasisWords]);
 
   // Apply definition underlines when editor content changes or definitions change
   useEffect(() => {
