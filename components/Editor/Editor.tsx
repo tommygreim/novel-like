@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
 import Highlight from "@tiptap/extension-highlight";
 import { ScenarioData } from "@/components/Scenario/ScenarioPanel";
@@ -13,6 +13,7 @@ interface EditorProps {
 
 export default function Editor({ scenario }: EditorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [maxWords, setMaxWords] = useState(150);
   const insertionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const editor = useEditor({
@@ -30,6 +31,11 @@ export default function Editor({ scenario }: EditorProps) {
       },
     },
     onUpdate: ({ editor }) => {
+      // Save content to localStorage
+      if (editor) {
+        localStorage.setItem("editor_content", editor.getHTML());
+      }
+
       // Remove highlight from any text when user edits
       const { from, to } = editor.state.selection;
       if (from !== to) {
@@ -46,6 +52,22 @@ export default function Editor({ scenario }: EditorProps) {
       }
     },
   });
+
+  // Load saved content on mount
+  useEffect(() => {
+    if (editor && typeof window !== "undefined") {
+      const savedContent = localStorage.getItem("editor_content");
+      if (savedContent) {
+        editor.commands.setContent(savedContent);
+      }
+
+      // Load max words setting
+      const savedMaxWords = localStorage.getItem("max_words");
+      if (savedMaxWords) {
+        setMaxWords(parseInt(savedMaxWords, 10));
+      }
+    }
+  }, [editor]);
 
   // Progressive text insertion function
   const insertTextProgressively = async (text: string) => {
@@ -105,7 +127,7 @@ export default function Editor({ scenario }: EditorProps) {
       // Extract context (last 2000 characters)
       const context = currentText.slice(-2000);
 
-      // Call our API route with scenario
+      // Call our API route with scenario and maxWords
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
@@ -116,6 +138,7 @@ export default function Editor({ scenario }: EditorProps) {
           scenario,
           apiKey,
           model,
+          maxWords,
         }),
       });
 
@@ -142,38 +165,6 @@ export default function Editor({ scenario }: EditorProps) {
     <div className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]" style={{
       background: 'linear-gradient(135deg, rgba(249, 250, 251, 1) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)'
     }}>
-      {/* Buffering overlay */}
-      {isGenerating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{
-          background: 'rgba(0, 0, 0, 0.2)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)'
-        }}>
-          <div className="flex items-center gap-4" style={{
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            borderRadius: '24px',
-            padding: '24px 32px',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
-            border: '1px solid rgba(255, 255, 255, 0.3)'
-          }}>
-            <div className="relative w-12 h-12">
-              <div className="absolute inset-0 rounded-full" style={{
-                border: '4px solid rgba(59, 130, 246, 0.2)'
-              }}></div>
-              <div className="absolute inset-0 rounded-full animate-spin" style={{
-                border: '4px solid transparent',
-                borderTopColor: 'rgb(37, 99, 235)'
-              }}></div>
-            </div>
-            <span className="font-medium text-lg" style={{ color: 'rgb(55, 65, 81)' }}>
-              Generating...
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Page-width centered editor with liquid glass effect */}
       <div className="max-w-[8.5in] mx-auto glass-panel" style={{
         borderRadius: '24px',
@@ -184,6 +175,8 @@ export default function Editor({ scenario }: EditorProps) {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           editor={editor}
+          maxWords={maxWords}
+          onMaxWordsChange={setMaxWords}
         />
         <div className="px-16 py-12" style={{ minHeight: '11in' }}>
           <EditorContent editor={editor} />

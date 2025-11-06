@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { context, scenario, apiKey, model } = await request.json();
+    const { context, scenario, apiKey, model, maxWords } = await request.json();
 
     if (!apiKey) {
       return NextResponse.json(
@@ -18,13 +18,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Calculate max_tokens from maxWords (roughly 1.3-1.5 tokens per word)
+    const targetWords = maxWords || 150;
+    const maxTokens = Math.ceil(targetWords * 1.5);
+
     // Build prompt with scenario context
     let prompt = "";
 
     if (scenario && typeof scenario === "string" && scenario.trim()) {
-      prompt = `You are writing a story with the following context:\n\n${scenario}\n\nContinue the story below naturally, maintaining consistency with the scenario and context provided above. Write about 100-200 words:\n\n${context}`;
+      prompt = `You are writing a story with the following context:\n\n${scenario}\n\nContinue the story below naturally, maintaining consistency with the scenario and context provided above. Write approximately ${targetWords} words:\n\n${context}`;
     } else {
-      prompt = `Continue the following text naturally, maintaining the same writing style and tone. Write about 100-200 words:\n\n${context}`;
+      prompt = `Continue the following text naturally, maintaining the same writing style and tone. Write approximately ${targetWords} words:\n\n${context}`;
     }
 
     // Call OpenRouter API
@@ -44,7 +48,7 @@ export async function POST(request: NextRequest) {
             content: prompt,
           },
         ],
-        max_tokens: 300,
+        max_tokens: maxTokens,
         temperature: 0.7,
       }),
     });
