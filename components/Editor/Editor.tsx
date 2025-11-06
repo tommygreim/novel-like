@@ -282,13 +282,11 @@ export default function Editor({ scenario }: EditorProps) {
     generatingTextRef.current = text;
 
     // Clear any previous highlights
-    const { tr } = editor.state;
-    editor.view.dispatch(
-      tr.removeMark(0, editor.state.doc.content.size, editor.schema.marks.highlight)
-    );
+    editor.commands.unsetHighlight();
 
     // Get the end position before starting insertion
-    const startPos = editor.state.doc.content.size;
+    // Use doc.nodeSize - 2 to get the position right before the closing doc tag
+    const startPos = editor.state.doc.nodeSize - 2;
 
     // Split text into words for progressive insertion
     const words = text.split(/(\s+)/); // Keep whitespace
