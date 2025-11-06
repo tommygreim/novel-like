@@ -3,6 +3,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Aurora colors for emphasis words */
+  --aurora-1: #00c2ff;
+  --aurora-2: #33ff8c;
+  --aurora-3: #ffc640;
+  --aurora-4: #e54cff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -69,10 +75,39 @@ body {
   }
 }
 
-/* This rule is now just for the whole word */
+/* Aurora gradient animation for emphasis words */
+@keyframes aurora-gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 75%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 25%;
+  }
+}
+
+/* Emphasis words with aurora effect */
 .editor-paragraph span[style*="animation"] {
-  /* You can add hover effects or other base styles here if needed */
+  position: relative;
   cursor: pointer;
+  background: linear-gradient(
+    135deg,
+    var(--aurora-1) 0%,
+    var(--aurora-2) 25%,
+    var(--aurora-3) 50%,
+    var(--aurora-4) 75%,
+    var(--aurora-1) 100%
+  );
+  background-size: 300% 300%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: wave 2s ease-in-out infinite, aurora-gradient 8s ease infinite;
 }
 
 .editor-paragraph span[style*="animation"]:hover {
