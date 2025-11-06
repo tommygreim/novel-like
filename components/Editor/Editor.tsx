@@ -383,7 +383,7 @@ export default function Editor({ scenario }: EditorProps) {
       const data = await response.json();
 
       if (data.text) {
-        // Insert generated text with lavender color and word-by-word fade-in
+        // Insert generated text with lavender color, word-by-word fade-in, and emphasis animations
         editorRef.current.update(() => {
           const root = $getRoot();
 
@@ -395,9 +395,6 @@ export default function Editor({ scenario }: EditorProps) {
               node.setStyle("");
             }
           });
-
-          // Split generated text into words
-          const words = data.text.trim().split(/\s+/);
 
           const lastChild = root.getLastChild();
           const targetParagraph = (lastChild && $isParagraphNode(lastChild))
@@ -412,20 +409,68 @@ export default function Editor({ scenario }: EditorProps) {
           const spaceNode = $createTextNode(" ");
           targetParagraph.append(spaceNode);
 
-          // Create styled text nodes for each word with staggered animation
-          words.forEach((word: string, index: number) => {
-            const wordNode = $createTextNode(word);
-            // Use a marker property that CSS can target, plus animation delay as a custom property
-            wordNode.setStyle(
-              `--lavender-gen: true; --word-index: ${index};`
-            );
-            targetParagraph.append(wordNode);
+          // Parse text for ::emphasis:: patterns
+          // Split text into tokens: regular text and emphasis text
+          const emphasisRegex = /::(.*?)::/g;
+          const tokens: Array<{ text: string; isEmphasis: boolean }> = [];
+          let lastIndex = 0;
+          let match;
 
-            // Add space after word (except for the last word)
-            if (index < words.length - 1) {
-              const spaceNode = $createTextNode(" ");
-              targetParagraph.append(spaceNode);
+          while ((match = emphasisRegex.exec(data.text)) !== null) {
+            // Add regular text before this match
+            if (match.index > lastIndex) {
+              tokens.push({
+                text: data.text.substring(lastIndex, match.index),
+                isEmphasis: false,
+              });
             }
+            // Add emphasis text (without the ::)
+            tokens.push({
+              text: match[1],
+              isEmphasis: true,
+            });
+            lastIndex = match.index + match[0].length;
+          }
+
+          // Add remaining text after last match
+          if (lastIndex < data.text.length) {
+            tokens.push({
+              text: data.text.substring(lastIndex),
+              isEmphasis: false,
+            });
+          }
+
+          // Track word index for staggered animation
+          let wordIndex = 0;
+
+          // Create text nodes for each token
+          tokens.forEach((token) => {
+            const words = token.text.trim().split(/\s+/).filter(w => w.length > 0);
+
+            words.forEach((word: string, localIndex: number) => {
+              const wordNode = $createTextNode(word);
+
+              if (token.isEmphasis) {
+                // Apply emphasis animation (wave + aurora)
+                wordNode.setStyle(
+                  "display: inline-block; animation: wave 2s ease-in-out infinite;"
+                );
+              } else {
+                // Apply lavender color with fade-in animation
+                wordNode.setStyle(
+                  `--lavender-gen: true; --word-index: ${wordIndex};`
+                );
+                wordIndex++;
+              }
+
+              targetParagraph.append(wordNode);
+
+              // Add space after word (except for the last word in the last token)
+              if (localIndex < words.length - 1 || token !== tokens[tokens.length - 1]) {
+                const spaceNode = $createTextNode(" ");
+                targetParagraph.append(spaceNode);
+              }
+            });
           });
         });
 

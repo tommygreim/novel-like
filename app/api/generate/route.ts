@@ -40,10 +40,13 @@ export async function POST(request: NextRequest) {
       definitionsText = `\n\nCHARACTER/TERM DEFINITIONS (use these descriptions for context when these words appear):\n${definitionsList}\n`;
     }
 
+    // Add emphasis instruction
+    const emphasisInstruction = "\n\nFORMATTING INSTRUCTION: Wrap any words or short phrases that should be emphasized (important nouns, vivid verbs, emotional words, key actions) in double colons like ::this::. Use this sparingly for maximum impact - only 2-4 words per paragraph. The colons will be hidden in display.";
+
     if (scenario && typeof scenario === "string" && scenario.trim()) {
-      prompt = `You are writing a story with the following context:\n\n${scenario}${instructionsText}${definitionsText}\n\nContinue the story below naturally, maintaining consistency with the scenario and context provided above. Write approximately ${targetWords} words:\n\n${context}`;
+      prompt = `You are writing a story with the following context:\n\n${scenario}${instructionsText}${definitionsText}${emphasisInstruction}\n\nContinue the story below naturally, maintaining consistency with the scenario and context provided above. Write approximately ${targetWords} words:\n\n${context}`;
     } else {
-      prompt = `Continue the following text naturally, maintaining the same writing style and tone.${instructionsText}${definitionsText} Write approximately ${targetWords} words:\n\n${context}`;
+      prompt = `Continue the following text naturally, maintaining the same writing style and tone.${instructionsText}${definitionsText}${emphasisInstruction} Write approximately ${targetWords} words:\n\n${context}`;
     }
 
     // Call OpenRouter API
