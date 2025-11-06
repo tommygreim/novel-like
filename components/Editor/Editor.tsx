@@ -316,6 +316,20 @@ export default function Editor({ scenario }: EditorProps) {
     }
   }, []);
 
+  // Hide define button on click outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (showDefineButton) {
+        setShowDefineButton(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showDefineButton]);
+
   const handleSave = (content: string) => {
     localStorage.setItem("editor_content", content);
   };
@@ -503,6 +517,24 @@ export default function Editor({ scenario }: EditorProps) {
     localStorage.setItem("word_definitions", JSON.stringify(newDefinitions));
   };
 
+  const handleSelectionChange = (text: string, rect: DOMRect | null) => {
+    if (text && rect) {
+      setSelectedWord(text);
+      setDefineButtonPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top - 10,
+      });
+      setShowDefineButton(true);
+    } else {
+      setShowDefineButton(false);
+    }
+  };
+
+  const handleDefineClick = () => {
+    setIsDefinitionModalOpen(true);
+    setShowDefineButton(false);
+  };
+
   return (
     <div
       className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]"
@@ -566,6 +598,7 @@ export default function Editor({ scenario }: EditorProps) {
             <AutoSavePlugin onSave={handleSave} />
             <EmphasisWordsPlugin words={emphasisWords} />
             <EditorRefPlugin editorRef={editorRef} />
+            <SelectionPlugin onSelectionChange={handleSelectionChange} />
           </LexicalComposer>
         </div>
       </div>
@@ -616,6 +649,24 @@ export default function Editor({ scenario }: EditorProps) {
         </button>
       </div>
 
+      {/* Define Button */}
+      {showDefineButton && (
+        <button
+          onClick={handleDefineClick}
+          className="fixed z-50 px-3 py-1.5 text-xs font-medium glass-button"
+          style={{
+            left: `${defineButtonPosition.x}px`,
+            top: `${defineButtonPosition.y}px`,
+            transform: "translate(-50%, -100%)",
+            borderRadius: "8px",
+            color: "white",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+          }}
+        >
+          Define
+        </button>
+      )}
+
       {/* Definition Modal */}
       <DefinitionModal
         isOpen={isDefinitionModalOpen}
@@ -636,6 +687,47 @@ function EditorRefPlugin({ editorRef }: { editorRef: React.MutableRefObject<Lexi
   useEffect(() => {
     editorRef.current = editor;
   }, [editor, editorRef]);
+
+  return null;
+}
+
+// Plugin to handle text selection for definitions
+function SelectionPlugin({
+  onSelectionChange,
+}: {
+  onSelectionChange: (text: string, rect: DOMRect | null) => void;
+}) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const selection = $getSelection();
+
+        if (!selection) {
+          onSelectionChange("", null);
+          return;
+        }
+
+        const nativeSelection = window.getSelection();
+        if (!nativeSelection || nativeSelection.rangeCount === 0) {
+          onSelectionChange("", null);
+          return;
+        }
+
+        const selectedText = selection.getTextContent().trim();
+
+        // Only show define button for single word selections (no spaces)
+        if (selectedText && !selectedText.includes(" ") && selectedText.length > 0) {
+          const range = nativeSelection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          onSelectionChange(selectedText, rect);
+        } else {
+          onSelectionChange("", null);
+        }
+      });
+    });
+  }, [editor, onSelectionChange]);
 
   return null;
 }
