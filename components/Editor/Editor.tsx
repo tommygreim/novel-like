@@ -298,13 +298,17 @@ export default function Editor({ scenario }: EditorProps) {
     // Store the text being generated
     generatingTextRef.current = text;
 
-    // Remove existing generated-text class from all elements
+    // Remove existing generated-text class and unwrap spans to convert back to normal text
     const editorElement = editor.view.dom;
     const existingGenerated = editorElement.querySelectorAll('.generated-text');
     existingGenerated.forEach((el) => {
-      el.classList.remove('generated-text');
-      (el as HTMLElement).style.animation = '';
-      (el as HTMLElement).style.opacity = '';
+      const span = el as HTMLElement;
+      // Create a text node with the span's content
+      const textNode = document.createTextNode(span.textContent || '');
+      // Replace the span with just the text
+      if (span.parentNode) {
+        span.parentNode.replaceChild(textNode, span);
+      }
     });
 
     // Move cursor to the very end of the document
