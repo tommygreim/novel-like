@@ -383,21 +383,51 @@ export default function Editor({ scenario }: EditorProps) {
       const data = await response.json();
 
       if (data.text) {
-        // Insert generated text
+        // Insert generated text with lavender color and word-by-word fade-in
         editorRef.current.update(() => {
           const root = $getRoot();
-          const lastChild = root.getLastChild();
 
-          if (lastChild && $isParagraphNode(lastChild)) {
-            const textNode = $createTextNode(" " + data.text);
-            lastChild.append(textNode);
-          } else {
-            // Create new paragraph if none exists
-            const paragraph = $createParagraphNode();
-            const textNode = $createTextNode(data.text);
-            paragraph.append(textNode);
-            root.append(paragraph);
-          }
+          // First, clear lavender color from any previous generation
+          root.getAllTextNodes().forEach((node) => {
+            const style = node.getStyle();
+            if (style.includes("color: #e0b0ff")) {
+              // Remove the lavender color styling from old generated text
+              node.setStyle("");
+            }
+          });
+
+          // Split generated text into words
+          const words = data.text.trim().split(/\s+/);
+
+          const lastChild = root.getLastChild();
+          const targetParagraph = (lastChild && $isParagraphNode(lastChild))
+            ? lastChild
+            : (() => {
+                const paragraph = $createParagraphNode();
+                root.append(paragraph);
+                return paragraph;
+              })();
+
+          // Add a space before the first generated word
+          const spaceNode = $createTextNode(" ");
+          targetParagraph.append(spaceNode);
+
+          // Create styled text nodes for each word with staggered animation
+          words.forEach((word: string, index: number) => {
+            const wordNode = $createTextNode(word);
+            // Apply lavender color and fade-in animation with delay
+            const animationDelay = index * 0.1; // 100ms delay between words
+            wordNode.setStyle(
+              `color: #e0b0ff; animation: fadeInWord 0.3s ease-out forwards; animation-delay: ${animationDelay}s; display: inline-block;`
+            );
+            targetParagraph.append(wordNode);
+
+            // Add space after word (except for the last word)
+            if (index < words.length - 1) {
+              const spaceNode = $createTextNode(" ");
+              targetParagraph.append(spaceNode);
+            }
+          });
         });
 
         setPreviousInstructions(allInstructions);
