@@ -11,6 +11,7 @@ interface SettingsModalProps {
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [apiKey, setApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState("openai/gpt-3.5-turbo");
+  const [emphasisWords, setEmphasisWords] = useState("");
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
@@ -18,14 +19,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     if (typeof window !== "undefined") {
       const savedApiKey = localStorage.getItem("openrouter_api_key") || "";
       const savedModel = localStorage.getItem("openrouter_model") || "openai/gpt-3.5-turbo";
+      const savedEmphasisWords = localStorage.getItem("emphasis_words") || "";
       setApiKey(savedApiKey);
       setSelectedModel(savedModel);
+      setEmphasisWords(savedEmphasisWords);
     }
   }, [isOpen]);
 
   const handleSave = () => {
     localStorage.setItem("openrouter_api_key", apiKey);
     localStorage.setItem("openrouter_model", selectedModel);
+    localStorage.setItem("emphasis_words", emphasisWords);
     setIsSaved(true);
     setTimeout(() => {
       setIsSaved(false);
@@ -103,6 +107,35 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             selectedModel={selectedModel}
             onModelChange={setSelectedModel}
           />
+
+          <div>
+            <label
+              htmlFor="emphasisWords"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'rgb(55, 65, 81)' }}
+            >
+              Emphasis Words
+            </label>
+            <textarea
+              id="emphasisWords"
+              value={emphasisWords}
+              onChange={(e) => setEmphasisWords(e.target.value)}
+              placeholder="Enter words separated by commas (e.g., love, heart, soul)"
+              rows={3}
+              className="w-full px-4 py-2.5 transition-all duration-200 focus:outline-none focus:ring-2 resize-none"
+              style={{
+                background: 'rgba(255, 255, 255, 0.5)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                border: '1px solid rgba(209, 213, 219, 0.5)',
+                borderRadius: '12px',
+                color: 'rgb(17, 24, 39)'
+              }}
+            />
+            <p className="mt-2 text-xs" style={{ color: 'rgb(107, 114, 128)' }}>
+              Words in this list will have a jiggling animation effect when visible in the editor.
+            </p>
+          </div>
 
           <div className="text-sm px-4 py-3" style={{
             background: 'rgba(239, 246, 255, 0.5)',

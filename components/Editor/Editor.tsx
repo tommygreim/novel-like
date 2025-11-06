@@ -185,6 +185,8 @@ export default function Editor({ scenario }: EditorProps) {
   const insertionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const generatingTextRef = useRef<string>("");
   const [previousInstructions, setPreviousInstructions] = useState<string[]>([]);
+  const [emphasisWords, setEmphasisWords] = useState<string[]>([]);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -243,8 +245,134 @@ export default function Editor({ scenario }: EditorProps) {
       if (savedMaxWords) {
         setMaxWords(parseInt(savedMaxWords, 10));
       }
+
+      // Load emphasis words
+      const savedEmphasisWords = localStorage.getItem("emphasis_words") || "";
+      const wordsArray = savedEmphasisWords
+        .split(",")
+        .map(w => w.trim().toLowerCase())
+        .filter(w => w.length > 0);
+      setEmphasisWords(wordsArray);
     }
   }, [editor]);
+
+  // Setup IntersectionObserver for viewport visibility
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const element = entry.target as HTMLElement;
+          if (entry.isIntersecting) {
+            // Element is visible, enable animation
+            element.querySelectorAll('.emphasis-char').forEach((char) => {
+              (char as HTMLElement).style.animationPlayState = 'running';
+            });
+          } else {
+            // Element is not visible, pause animation
+            element.querySelectorAll('.emphasis-char').forEach((char) => {
+              (char as HTMLElement).style.animationPlayState = 'paused';
+            });
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  // Apply emphasis effect to matching words
+  const applyEmphasisEffect = () => {
+    if (!editor || emphasisWords.length === 0) return;
+
+    const editorElement = editor.view.dom;
+
+    // Remove all previous emphasis wrapping
+    editorElement.querySelectorAll('.emphasis-word').forEach((el) => {
+      const span = el as HTMLElement;
+      const textNode = document.createTextNode(span.textContent || '');
+      if (span.parentNode) {
+        span.parentNode.replaceChild(textNode, span);
+      }
+    });
+
+    // Find and wrap matching words
+    const walker = document.createTreeWalker(
+      editorElement,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    const textNodes: Text[] = [];
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      textNodes.push(node as Text);
+    }
+
+    textNodes.forEach((textNode) => {
+      const text = textNode.textContent || '';
+      const words = text.split(/(\s+)/);
+      let needsReplacement = false;
+
+      words.forEach((word) => {
+        if (emphasisWords.includes(word.toLowerCase().trim())) {
+          needsReplacement = true;
+        }
+      });
+
+      if (!needsReplacement) return;
+
+      const fragment = document.createDocumentFragment();
+
+      words.forEach((word) => {
+        if (emphasisWords.includes(word.toLowerCase().trim())) {
+          // Create a span for the word
+          const wordSpan = document.createElement('span');
+          wordSpan.className = 'emphasis-word';
+
+          // Wrap each character in a span
+          for (let i = 0; i < word.length; i++) {
+            const charSpan = document.createElement('span');
+            charSpan.className = 'emphasis-char';
+            charSpan.textContent = word[i];
+            wordSpan.appendChild(charSpan);
+          }
+
+          fragment.appendChild(wordSpan);
+        } else {
+          fragment.appendChild(document.createTextNode(word));
+        }
+      });
+
+      if (textNode.parentNode) {
+        textNode.parentNode.replaceChild(fragment, textNode);
+      }
+    });
+
+    // Observe all paragraphs for viewport visibility
+    if (observerRef.current) {
+      editorElement.querySelectorAll('p').forEach((p) => {
+        observerRef.current?.observe(p);
+      });
+    }
+  };
+
+  // Apply emphasis effect when editor content changes or emphasis words change
+  useEffect(() => {
+    if (editor && emphasisWords.length > 0) {
+      const timeoutId = setTimeout(() => {
+        applyEmphasisEffect();
+      }, 100); // Small delay to let DOM settle
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [editor?.state.doc.content, emphasisWords]);
 
   // Extract [[instructions]] from text
   const extractInstructions = (text: string): { cleanText: string; instructions: string[] } => {
