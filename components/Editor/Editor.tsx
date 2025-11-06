@@ -79,7 +79,7 @@ export default function Editor({ scenario }: EditorProps) {
       .chain()
       .focus()
       .setTextSelection({ from: startPos, to: endPos })
-      .setHighlight({ color: "#86efac" }) // green-300
+      .setHighlight({ color: "#d4f4dd" }) // dimmer green
       .focus("end")
       .run();
   };
@@ -139,31 +139,30 @@ export default function Editor({ scenario }: EditorProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-950 border-x border-b border-gray-200 dark:border-gray-800 relative">
-      <EditorToolbar
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        editor={editor}
-      />
-
+    <div className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]">
       {/* Buffering overlay */}
       {isGenerating && (
-        <div className="absolute inset-0 bg-white/50 dark:bg-gray-950/50 backdrop-blur-sm z-10 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl px-6 py-4 flex items-center gap-3">
-            <div className="relative w-10 h-10">
-              <div className="absolute inset-0 border-4 border-blue-200 dark:border-blue-800 rounded-full"></div>
+        <div className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-md z-50 flex items-center justify-center">
+          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl shadow-2xl px-8 py-6 flex items-center gap-4 border border-white/20 dark:border-gray-700/30">
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 border-4 border-blue-200/30 dark:border-blue-800/30 rounded-full"></div>
               <div className="absolute inset-0 border-4 border-transparent border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin"></div>
             </div>
-            <span className="text-gray-700 dark:text-gray-300 font-medium">
+            <span className="text-gray-700 dark:text-gray-300 font-medium text-lg">
               Generating...
             </span>
           </div>
         </div>
       )}
 
-      {/* Page-width centered editor */}
-      <div className="px-6 py-8">
-        <div className="max-w-[8.5in] mx-auto bg-white dark:bg-gray-900 shadow-sm px-16 py-12 min-h-[11in]">
+      {/* Page-width centered editor with liquid glass effect */}
+      <div className="max-w-[8.5in] mx-auto bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl shadow-2xl rounded-2xl border border-white/20 dark:border-gray-700/30 overflow-hidden">
+        <EditorToolbar
+          onGenerate={handleGenerate}
+          isGenerating={isGenerating}
+          editor={editor}
+        />
+        <div className="px-16 py-12 min-h-[11in]">
           <EditorContent editor={editor} />
         </div>
       </div>

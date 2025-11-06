@@ -43,16 +43,16 @@ body {
 }
 
 /* Green highlight for generated text */
-.ProseMirror mark[data-color="#86efac"] {
-  background-color: #86efac;
+.ProseMirror mark[data-color="#d4f4dd"] {
+  background-color: #d4f4dd;
   color: inherit;
   padding: 0.1em 0;
   border-radius: 0.2em;
 }
 
 @media (prefers-color-scheme: dark) {
-  .ProseMirror mark[data-color="#86efac"] {
-    background-color: #166534;
-    color: #dcfce7;
+  .ProseMirror mark[data-color="#d4f4dd"] {
+    background-color: #1e4620;
+    color: inherit;
   }
 }

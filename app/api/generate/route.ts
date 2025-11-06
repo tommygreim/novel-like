@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-interface ScenarioData {
-  description: string;
-  tone: string;
-  characters: string;
-  writingStyle: string;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { context, scenario, apiKey, model } = await request.json();
@@ -28,28 +21,8 @@ export async function POST(request: NextRequest) {
     // Build prompt with scenario context
     let prompt = "";
 
-    if (scenario && (scenario as ScenarioData)) {
-      const s = scenario as ScenarioData;
-      const scenarioParts: string[] = [];
-
-      if (s.description) {
-        scenarioParts.push(`Story Description: ${s.description}`);
-      }
-      if (s.tone) {
-        scenarioParts.push(`Tone & Mood: ${s.tone}`);
-      }
-      if (s.characters) {
-        scenarioParts.push(`Characters: ${s.characters}`);
-      }
-      if (s.writingStyle) {
-        scenarioParts.push(`Writing Style: ${s.writingStyle}`);
-      }
-
-      if (scenarioParts.length > 0) {
-        prompt = `You are writing a story with the following context:\n\n${scenarioParts.join("\n\n")}\n\nContinue the story below naturally, maintaining consistency with the scenario, tone, characters, and writing style. Write about 100-200 words:\n\n${context}`;
-      } else {
-        prompt = `Continue the following text naturally, maintaining the same writing style and tone. Write about 100-200 words:\n\n${context}`;
-      }
+    if (scenario && typeof scenario === "string" && scenario.trim()) {
+      prompt = `You are writing a story with the following context:\n\n${scenario}\n\nContinue the story below naturally, maintaining consistency with the scenario and context provided above. Write about 100-200 words:\n\n${context}`;
     } else {
       prompt = `Continue the following text naturally, maintaining the same writing style and tone. Write about 100-200 words:\n\n${context}`;
     }

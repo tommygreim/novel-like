@@ -70,7 +70,7 @@ export default function ModelSelector({
         id="model"
         value={selectedModel}
         onChange={(e) => onModelChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+        className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-900 dark:text-gray-100 transition-all duration-200"
       >
         {AVAILABLE_MODELS.map((model) => (
           <option key={model.id} value={model.id}>
@@ -78,13 +78,13 @@ export default function ModelSelector({
           </option>
         ))}
       </select>
-      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
         Different models have different costs and capabilities. Check{" "}
         <a
           href="https://openrouter.ai/docs#models"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-600 dark:text-blue-400 hover:underline"
+          className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
         >
           OpenRouter docs
         </a>{" "}
