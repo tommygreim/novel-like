@@ -304,6 +304,7 @@ export default function Editor({ scenario }: EditorProps) {
     existingGenerated.forEach((el) => {
       el.classList.remove('generated-text');
       (el as HTMLElement).style.animation = '';
+      (el as HTMLElement).style.opacity = '';
     });
 
     // Move cursor to the very end of the document
@@ -318,23 +319,66 @@ export default function Editor({ scenario }: EditorProps) {
       editor.commands.insertContent(" ");
     }
 
-    // Split text into words and wrap each in a span
-    const words = text.split(/(\s+)/); // Keep whitespace
-    const wrappedWords = words
-      .map((word, idx) => {
-        if (word.trim()) {
-          return `<span class="generated-text" data-word-index="${idx}">${word}</span>`;
-        } else {
-          // Whitespace - no animation needed
-          return word;
+    // Get the current position before insertion
+    const startPos = editor.state.selection.from;
+
+    // Insert plain text first
+    editor.commands.insertContent(text);
+
+    // Wait for DOM to update
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Find the text nodes we just inserted and wrap words in spans
+    const endPos = editor.state.selection.from;
+    const { state } = editor;
+    const resolvedStart = state.doc.resolve(startPos);
+    const resolvedEnd = state.doc.resolve(endPos);
+
+    // Find all text nodes between start and end positions
+    const textNodes: { node: Node; parent: HTMLElement; text: string }[] = [];
+
+    state.doc.nodesBetween(startPos, endPos, (node, pos) => {
+      if (node.isText && node.text) {
+        const domNode = editor.view.domAtPos(pos);
+        if (domNode.node instanceof Text) {
+          const parent = domNode.node.parentElement;
+          if (parent) {
+            textNodes.push({
+              node: domNode.node,
+              parent: parent,
+              text: node.text
+            });
+          }
         }
-      })
-      .join("");
+      }
+    });
 
-    // Insert all text at once
-    editor.commands.insertContent(wrappedWords);
+    // Wrap each word in the text nodes
+    let wordIndex = 0;
+    textNodes.forEach(({ node, parent, text }) => {
+      const words = text.split(/(\s+)/);
+      const fragment = document.createDocumentFragment();
 
-    // Apply animations to each word after DOM updates
+      words.forEach((word) => {
+        if (word.trim()) {
+          const span = document.createElement('span');
+          span.className = 'generated-text';
+          span.setAttribute('data-word-index', String(wordIndex));
+          span.textContent = word;
+          fragment.appendChild(span);
+          wordIndex++;
+        } else if (word) {
+          fragment.appendChild(document.createTextNode(word));
+        }
+      });
+
+      // Replace the text node with the fragment
+      if (node.parentNode) {
+        node.parentNode.replaceChild(fragment, node);
+      }
+    });
+
+    // Apply animations after wrapping
     await new Promise(resolve => setTimeout(resolve, 10));
 
     const generatedWords = editorElement.querySelectorAll('.generated-text');
@@ -346,7 +390,8 @@ export default function Editor({ scenario }: EditorProps) {
     });
 
     // Wait for animations to complete
-    const totalDuration = words.filter(w => w.trim()).length * 30 + 300;
+    const totalWords = generatedWords.length;
+    const totalDuration = totalWords * 30 + 300;
     await new Promise((resolve) => {
       insertionTimeoutRef.current = setTimeout(resolve, totalDuration);
     });
