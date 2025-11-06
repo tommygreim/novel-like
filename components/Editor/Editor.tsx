@@ -390,7 +390,7 @@ export default function Editor({ scenario }: EditorProps) {
           // First, clear lavender color from any previous generation
           root.getAllTextNodes().forEach((node) => {
             const style = node.getStyle();
-            if (style.includes("color: #e0b0ff")) {
+            if (style.includes("#e0b0ff") || style.includes("lavender-gen")) {
               // Remove the lavender color styling from old generated text
               node.setStyle("");
             }
@@ -415,10 +415,9 @@ export default function Editor({ scenario }: EditorProps) {
           // Create styled text nodes for each word with staggered animation
           words.forEach((word: string, index: number) => {
             const wordNode = $createTextNode(word);
-            // Apply lavender color and fade-in animation with delay
-            const animationDelay = index * 0.1; // 100ms delay between words
+            // Use a marker property that CSS can target, plus animation delay as a custom property
             wordNode.setStyle(
-              `color: #e0b0ff; animation: fadeInWord 0.3s ease-out forwards; animation-delay: ${animationDelay}s; display: inline-block;`
+              `--lavender-gen: true; --word-index: ${index};`
             );
             targetParagraph.append(wordNode);
 

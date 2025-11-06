@@ -130,11 +130,12 @@ body {
   }
 }
 
-/* Generated text styling */
-.generated-word {
-  color: #e0b0ff;
+/* Generated text styling - target spans with the lavender-gen marker */
+.editor-paragraph span[style*="--lavender-gen"] {
+  color: #e0b0ff !important;
   animation: fadeInWord 0.3s ease-out forwards;
   display: inline-block;
+  animation-delay: calc(var(--word-index, 0) * 0.1s);
 }
 
 /* Liquid Glass Effects */
