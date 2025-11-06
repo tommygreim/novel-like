@@ -77,17 +77,20 @@ body {
 
 /* Aurora gradient animation for emphasis words */
 @keyframes aurora-gradient {
-  0%, 100% {
+  0% {
     background-position: 0% 50%;
   }
   25% {
-    background-position: 50% 75%;
+    background-position: 100% 100%;
   }
   50% {
-    background-position: 100% 50%;
+    background-position: 200% 50%;
   }
   75% {
-    background-position: 50% 25%;
+    background-position: 100% 0%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }
 
@@ -97,17 +100,18 @@ body {
   cursor: pointer;
   background: linear-gradient(
     135deg,
-    var(--aurora-1) 0%,
-    var(--aurora-2) 25%,
-    var(--aurora-3) 50%,
-    var(--aurora-4) 75%,
-    var(--aurora-1) 100%
+    var(--aurora-1),
+    var(--aurora-2),
+    var(--aurora-3),
+    var(--aurora-4),
+    var(--aurora-1),
+    var(--aurora-2)
   );
-  background-size: 300% 300%;
+  background-size: 400% 400%;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: wave 2s ease-in-out infinite, aurora-gradient 8s ease infinite;
+  animation: wave 2s ease-in-out infinite, aurora-gradient 3s linear infinite;
 }
 
 .editor-paragraph span[style*="animation"]:hover {
