@@ -185,6 +185,17 @@ export default function Editor({ scenario }: EditorProps) {
   const insertionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const generatingTextRef = useRef<string>("");
   const [previousInstructions, setPreviousInstructions] = useState<string[]>([]);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  // Track mouse position relative to viewport
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -207,21 +218,25 @@ export default function Editor({ scenario }: EditorProps) {
         localStorage.setItem("editor_content", editor.getHTML());
       }
 
-      // Remove lavender color from text when user edits
-      const { from, to } = editor.state.selection;
-      if (from !== to) {
-        // Selection is active, don't remove colors yet
-        return;
-      }
+      // Remove generated-text class when user edits
+      // This removes the lavender color and animation from edited words
+      const editorElement = editor.view.dom;
+      const { from } = editor.state.selection;
 
-      // Check if we're typing in a lavender-colored area
-      const marks = editor.state.storedMarks || editor.state.selection.$from.marks();
-      const hasLavenderColor = marks.some(
-        (mark) => mark.type.name === "textStyle" && mark.attrs.color === "#e0b0ff"
-      );
+      // Find the node at cursor position and check if it has generated-text class
+      const domAtPos = editor.view.domAtPos(from);
+      let node: Node | null = domAtPos.node;
 
-      if (hasLavenderColor) {
-        editor.commands.unsetColor();
+      // Traverse up to find a span with generated-text class
+      while (node && node !== editorElement) {
+        if (node instanceof HTMLElement && node.classList.contains('generated-text')) {
+          node.classList.remove('generated-text');
+          node.style.color = '';
+          node.style.textShadow = '';
+          node.style.animation = '';
+          break;
+        }
+        node = node.parentNode;
       }
     },
   });
@@ -283,25 +298,13 @@ export default function Editor({ scenario }: EditorProps) {
     // Store the text being generated
     generatingTextRef.current = text;
 
-    // Clear all existing lavender-colored text by removing the color
-    const doc = editor.state.doc;
-    const tr = editor.state.tr;
-    let cleared = false;
-
-    doc.descendants((node, pos) => {
-      if (node.isText && node.marks) {
-        node.marks.forEach((mark) => {
-          if (mark.type.name === "textStyle" && mark.attrs.color === "#e0b0ff") {
-            tr.removeMark(pos, pos + node.nodeSize, mark);
-            cleared = true;
-          }
-        });
-      }
+    // Remove existing generated-text class from all elements
+    const editorElement = editor.view.dom;
+    const existingGenerated = editorElement.querySelectorAll('.generated-text');
+    existingGenerated.forEach((el) => {
+      el.classList.remove('generated-text');
+      (el as HTMLElement).style.animation = '';
     });
-
-    if (cleared) {
-      editor.view.dispatch(tr);
-    }
 
     // Move cursor to the very end of the document
     editor.commands.focus("end");
@@ -315,14 +318,12 @@ export default function Editor({ scenario }: EditorProps) {
       editor.commands.insertContent(" ");
     }
 
-    // Split text into words and wrap each in a span with fade animation
+    // Split text into words and wrap each in a span
     const words = text.split(/(\s+)/); // Keep whitespace
     const wrappedWords = words
       .map((word, idx) => {
         if (word.trim()) {
-          // Calculate staggered delay for each word (in milliseconds)
-          const delay = idx * 30; // 30ms between each word reveal
-          return `<span style="color: #e0b0ff; animation: fadeInWord 0.3s ease-in forwards; animation-delay: ${delay}ms; opacity: 0;">${word}</span>`;
+          return `<span class="generated-text" data-word-index="${idx}">${word}</span>`;
         } else {
           // Whitespace - no animation needed
           return word;
@@ -330,19 +331,27 @@ export default function Editor({ scenario }: EditorProps) {
       })
       .join("");
 
-    // Insert all text at once with animations
+    // Insert all text at once
     editor.commands.insertContent(wrappedWords);
 
-    // Wait for the animation to complete before clearing the mark
-    const totalDuration = words.length * 30 + 300; // Total animation time
+    // Apply animations to each word after DOM updates
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const generatedWords = editorElement.querySelectorAll('.generated-text');
+    generatedWords.forEach((span) => {
+      const idx = parseInt((span as HTMLElement).getAttribute('data-word-index') || '0');
+      const delay = idx * 30; // 30ms between each word
+      (span as HTMLElement).style.animation = `fadeInWord 0.3s ease-in forwards`;
+      (span as HTMLElement).style.animationDelay = `${delay}ms`;
+    });
+
+    // Wait for animations to complete
+    const totalDuration = words.filter(w => w.trim()).length * 30 + 300;
     await new Promise((resolve) => {
       insertionTimeoutRef.current = setTimeout(resolve, totalDuration);
     });
 
-    // Clear the color mark so future typing is normal
-    editor.commands.unsetColor();
     editor.commands.focus("end");
-
     generatingTextRef.current = "";
   };
 
@@ -414,12 +423,50 @@ export default function Editor({ scenario }: EditorProps) {
     }
   };
 
+  // Calculate shadow direction based on cursor position
+  // Shadow points away from cursor (as if cursor is light source)
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [shadowOffset, setShadowOffset] = useState({ x: 2, y: 2 });
+
+  useEffect(() => {
+    if (editorRef.current) {
+      const editorRect = editorRef.current.getBoundingClientRect();
+      const editorCenterX = editorRect.left + editorRect.width / 2;
+      const editorCenterY = editorRect.top + editorRect.height / 2;
+
+      // Calculate direction from cursor to editor center
+      const dx = editorCenterX - mousePosition.x;
+      const dy = editorCenterY - mousePosition.y;
+
+      // Normalize and scale
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const maxDistance = 800; // Max effect distance
+      const intensity = Math.min(distance / maxDistance, 1);
+
+      // Shadow offset (opposite direction of cursor)
+      const shadowX = (dx / distance) * 3 * intensity || 2;
+      const shadowY = (dy / distance) * 3 * intensity || 2;
+
+      setShadowOffset({ x: shadowX, y: shadowY });
+    }
+  }, [mousePosition]);
+
   return (
     <div className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]" style={{
       background: 'linear-gradient(135deg, rgba(249, 250, 251, 1) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)'
     }}>
+      {/* Dynamic shadow CSS for generated text */}
+      <style>{`
+        .generated-text {
+          color: #e0b0ff;
+          opacity: 0;
+          text-shadow: ${shadowOffset.x}px ${shadowOffset.y}px 4px rgba(224, 176, 255, 0.4);
+          transition: text-shadow 0.3s ease;
+        }
+      `}</style>
+
       {/* Page-width centered editor with liquid glass effect */}
-      <div className="max-w-[8.5in] mx-auto glass-panel" style={{
+      <div ref={editorRef} className="max-w-[8.5in] mx-auto glass-panel" style={{
         borderRadius: '24px',
         overflow: 'hidden',
         boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)'
