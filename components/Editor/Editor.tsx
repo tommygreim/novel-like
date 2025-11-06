@@ -185,17 +185,6 @@ export default function Editor({ scenario }: EditorProps) {
   const insertionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const generatingTextRef = useRef<string>("");
   const [previousInstructions, setPreviousInstructions] = useState<string[]>([]);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-
-  // Track mouse position relative to viewport
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -291,25 +280,32 @@ export default function Editor({ scenario }: EditorProps) {
     }
   };
 
-  // Insert text all at once with fade-in reveal effect
+  // Insert text with lavender color
   const insertTextProgressively = async (text: string) => {
     if (!editor) return;
 
     // Store the text being generated
     generatingTextRef.current = text;
 
-    // Remove existing generated-text class and unwrap spans to convert back to normal text
-    const editorElement = editor.view.dom;
-    const existingGenerated = editorElement.querySelectorAll('.generated-text');
-    existingGenerated.forEach((el) => {
-      const span = el as HTMLElement;
-      // Create a text node with the span's content
-      const textNode = document.createTextNode(span.textContent || '');
-      // Replace the span with just the text
-      if (span.parentNode) {
-        span.parentNode.replaceChild(textNode, span);
+    // Clear lavender color from previous generation
+    const doc = editor.state.doc;
+    const tr = editor.state.tr;
+    let cleared = false;
+
+    doc.descendants((node, pos) => {
+      if (node.isText && node.marks) {
+        node.marks.forEach((mark) => {
+          if (mark.type.name === "textStyle" && mark.attrs.color === "#e0b0ff") {
+            tr.removeMark(pos, pos + node.nodeSize, mark);
+            cleared = true;
+          }
+        });
       }
     });
+
+    if (cleared) {
+      editor.view.dispatch(tr);
+    }
 
     // Move cursor to the very end of the document
     editor.commands.focus("end");
@@ -323,89 +319,13 @@ export default function Editor({ scenario }: EditorProps) {
       editor.commands.insertContent(" ");
     }
 
-    // Get the current position before insertion
-    const startPos = editor.state.selection.from;
+    // Insert text with lavender color
+    editor.chain().focus().setColor("#e0b0ff").insertContent(text).run();
 
-    // Insert plain text first
-    editor.commands.insertContent(text);
-
-    // Wait for DOM to update
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    // Find the text nodes we just inserted and wrap words in spans
-    const endPos = editor.state.selection.from;
-    const { state } = editor;
-    const resolvedStart = state.doc.resolve(startPos);
-    const resolvedEnd = state.doc.resolve(endPos);
-
-    // Find all text nodes between start and end positions
-    const textNodes: { node: Node; parent: HTMLElement; text: string }[] = [];
-
-    state.doc.nodesBetween(startPos, endPos, (node, pos) => {
-      if (node.isText && node.text) {
-        const domNode = editor.view.domAtPos(pos);
-        if (domNode.node instanceof Text) {
-          const parent = domNode.node.parentElement;
-          if (parent) {
-            textNodes.push({
-              node: domNode.node,
-              parent: parent,
-              text: node.text
-            });
-          }
-        }
-      }
-    });
-
-    // Wrap each word in the text nodes
-    let wordIndex = 0;
-    textNodes.forEach(({ node, parent, text }) => {
-      const words = text.split(/(\s+)/);
-      const fragment = document.createDocumentFragment();
-
-      words.forEach((word) => {
-        if (word.trim()) {
-          const span = document.createElement('span');
-          span.className = 'generated-text';
-          span.setAttribute('data-word-index', String(wordIndex));
-          span.textContent = word;
-          // Set initial opacity inline
-          span.style.opacity = '0';
-          fragment.appendChild(span);
-          wordIndex++;
-        } else if (word) {
-          fragment.appendChild(document.createTextNode(word));
-        }
-      });
-
-      // Replace the text node with the fragment
-      if (node.parentNode) {
-        node.parentNode.replaceChild(fragment, node);
-      }
-    });
-
-    // Apply animations after wrapping
-    await new Promise(resolve => setTimeout(resolve, 10));
-
-    const generatedWords = editorElement.querySelectorAll('.generated-text');
-    generatedWords.forEach((span) => {
-      const idx = parseInt((span as HTMLElement).getAttribute('data-word-index') || '0');
-      const delay = idx * 30; // 30ms between each word
-      const htmlSpan = span as HTMLElement;
-      htmlSpan.style.animation = `fadeInWord 0.3s ease-in forwards`;
-      htmlSpan.style.animationDelay = `${delay}ms`;
-      // Ensure initial opacity is set
-      htmlSpan.style.opacity = '0';
-    });
-
-    // Wait for animations to complete
-    const totalWords = generatedWords.length;
-    const totalDuration = totalWords * 30 + 300;
-    await new Promise((resolve) => {
-      insertionTimeoutRef.current = setTimeout(resolve, totalDuration);
-    });
-
+    // Clear color mark so future typing is normal
+    editor.commands.unsetColor();
     editor.commands.focus("end");
+
     generatingTextRef.current = "";
   };
 
@@ -477,50 +397,12 @@ export default function Editor({ scenario }: EditorProps) {
     }
   };
 
-  // Calculate shadow direction based on cursor position
-  // Shadow points away from cursor (as if cursor is light source)
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [shadowOffset, setShadowOffset] = useState({ x: 2, y: 2 });
-
-  useEffect(() => {
-    if (editorRef.current) {
-      const editorRect = editorRef.current.getBoundingClientRect();
-      const editorCenterX = editorRect.left + editorRect.width / 2;
-      const editorCenterY = editorRect.top + editorRect.height / 2;
-
-      // Calculate direction from cursor to editor center
-      const dx = editorCenterX - mousePosition.x;
-      const dy = editorCenterY - mousePosition.y;
-
-      // Normalize and scale
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const maxDistance = 800; // Max effect distance
-      const intensity = Math.min(distance / maxDistance, 1);
-
-      // Shadow offset (opposite direction of cursor)
-      const shadowX = (dx / distance) * 3 * intensity || 2;
-      const shadowY = (dy / distance) * 3 * intensity || 2;
-
-      setShadowOffset({ x: shadowX, y: shadowY });
-    }
-  }, [mousePosition]);
-
   return (
     <div className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]" style={{
       background: 'linear-gradient(135deg, rgba(249, 250, 251, 1) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)'
     }}>
-      {/* Dynamic shadow CSS for generated text */}
-      <style>{`
-        .ProseMirror .generated-text {
-          color: #e0b0ff !important;
-          text-shadow: ${shadowOffset.x}px ${shadowOffset.y}px 4px rgba(224, 176, 255, 0.4) !important;
-          transition: text-shadow 0.3s ease;
-          display: inline;
-        }
-      `}</style>
-
       {/* Page-width centered editor with liquid glass effect */}
-      <div ref={editorRef} className="max-w-[8.5in] mx-auto glass-panel" style={{
+      <div className="max-w-[8.5in] mx-auto glass-panel" style={{
         borderRadius: '24px',
         overflow: 'hidden',
         boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)'

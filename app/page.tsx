@@ -11,27 +11,11 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("editor");
   const [scenario, setScenario] = useState<ScenarioData | null>(null);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
-    setMousePosition({ x: e.clientX, y: e.clientY });
-  };
 
   return (
-    <main
-      className="min-h-screen"
-      onMouseMove={handleMouseMove}
-      style={{
-        background: `
-          radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px,
-            rgba(224, 176, 255, 0.08),
-            transparent 40%
-          ),
-          linear-gradient(135deg, rgb(249, 250, 251) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)
-        `,
-        transition: 'background 0.3s ease'
-      }}
-    >
+    <main className="min-h-screen" style={{
+      background: 'linear-gradient(135deg, rgb(249, 250, 251) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)'
+    }}>
 
       <div className="max-w-7xl mx-auto">
         {/* Floating Header */}
