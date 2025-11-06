@@ -304,95 +304,81 @@ export default function Editor({ scenario }: EditorProps) {
 
     // Remove all previous emphasis wrapping
     editorElement.querySelectorAll('.emphasis-word').forEach((el) => {
-      const span = el as HTMLElement;
-      const textNode = document.createTextNode(span.textContent || '');
-      if (span.parentNode) {
-        span.parentNode.replaceChild(textNode, span);
+      const text = el.textContent || '';
+      const textNode = document.createTextNode(text);
+      if (el.parentNode) {
+        el.parentNode.replaceChild(textNode, el);
       }
     });
 
-    // Small delay to let DOM settle after cleanup
-    setTimeout(() => {
-      // Find and wrap matching words - only in paragraph elements
-      const paragraphs = editorElement.querySelectorAll('p');
+    // Process all paragraph elements
+    const paragraphs = editorElement.querySelectorAll('p');
 
-      paragraphs.forEach((paragraph) => {
-        const walker = document.createTreeWalker(
-          paragraph,
-          NodeFilter.SHOW_TEXT,
-          {
-            acceptNode: (node) => {
-              // Skip if already inside an emphasis word
-              let parent = node.parentNode;
-              while (parent && parent !== paragraph) {
-                if (parent instanceof HTMLElement && parent.classList.contains('emphasis-word')) {
-                  return NodeFilter.FILTER_REJECT;
-                }
-                parent = parent.parentNode;
-              }
-              return NodeFilter.FILTER_ACCEPT;
-            }
-          }
+    paragraphs.forEach((paragraph) => {
+      // Get all text nodes in this paragraph
+      const walker = document.createTreeWalker(
+        paragraph,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      const textNodes: Text[] = [];
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        textNodes.push(node as Text);
+      }
+
+      // Process each text node
+      textNodes.forEach((textNode) => {
+        const text = textNode.textContent || '';
+        const words = text.split(/(\s+)/);
+
+        // Check if any words need emphasis
+        const hasEmphasisWord = words.some(word =>
+          emphasisWords.includes(word.toLowerCase().trim())
         );
 
-        const textNodes: Text[] = [];
-        let node: Node | null;
-        while ((node = walker.nextNode())) {
-          textNodes.push(node as Text);
-        }
+        if (!hasEmphasisWord) return;
 
-    textNodes.forEach((textNode) => {
-      const text = textNode.textContent || '';
-      const words = text.split(/(\s+)/);
-      let needsReplacement = false;
+        // Build replacement fragment
+        const fragment = document.createDocumentFragment();
 
-      words.forEach((word) => {
-        if (emphasisWords.includes(word.toLowerCase().trim())) {
-          needsReplacement = true;
-        }
-      });
+        words.forEach((word) => {
+          const cleanWord = word.toLowerCase().trim();
 
-      if (!needsReplacement) return;
+          if (cleanWord && emphasisWords.includes(cleanWord)) {
+            // Create wrapper for the word
+            const wordWrapper = document.createElement('span');
+            wordWrapper.className = 'emphasis-word';
 
-      const fragment = document.createDocumentFragment();
+            // Wrap each character
+            for (let i = 0; i < word.length; i++) {
+              const charSpan = document.createElement('span');
+              charSpan.className = 'emphasis-char';
+              charSpan.textContent = word[i];
+              wordWrapper.appendChild(charSpan);
+            }
 
-      words.forEach((word) => {
-        if (emphasisWords.includes(word.toLowerCase().trim())) {
-          // Create a span for the word
-          const wordSpan = document.createElement('span');
-          wordSpan.className = 'emphasis-word';
-          wordSpan.style.display = 'inline';
-          wordSpan.style.whiteSpace = 'nowrap';
-
-          // Wrap each character in a span
-          for (let i = 0; i < word.length; i++) {
-            const charSpan = document.createElement('span');
-            charSpan.className = 'emphasis-char';
-            charSpan.textContent = word[i];
-            charSpan.style.display = 'inline-block';
-            charSpan.style.animationPlayState = 'running'; // Explicitly start animation
-            wordSpan.appendChild(charSpan);
+            fragment.appendChild(wordWrapper);
+          } else {
+            // Regular text
+            fragment.appendChild(document.createTextNode(word));
           }
+        });
 
-          fragment.appendChild(wordSpan);
-        } else {
-          fragment.appendChild(document.createTextNode(word));
+        // Replace text node with fragment
+        if (textNode.parentNode) {
+          textNode.parentNode.replaceChild(fragment, textNode);
         }
       });
-
-      if (textNode.parentNode) {
-        textNode.parentNode.replaceChild(fragment, textNode);
-      }
     });
-      }); // Close paragraph forEach
 
-      // Observe all paragraphs for viewport visibility
-      if (observerRef.current) {
-        editorElement.querySelectorAll('p').forEach((p) => {
-          observerRef.current?.observe(p);
-        });
-      }
-    }, 10); // Close setTimeout
+    // Set up viewport observation
+    if (observerRef.current) {
+      paragraphs.forEach((p) => {
+        observerRef.current?.observe(p);
+      });
+    }
   };
 
   // Apply emphasis effect when editor content changes or emphasis words change
