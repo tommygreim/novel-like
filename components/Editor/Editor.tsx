@@ -276,7 +276,7 @@ export default function Editor({ scenario }: EditorProps) {
     }
   };
 
-  // Progressive text insertion function - inserts at cursor with lavender color
+  // Insert text all at once with fade-in reveal effect
   const insertTextProgressively = async (text: string) => {
     if (!editor) return;
 
@@ -315,25 +315,29 @@ export default function Editor({ scenario }: EditorProps) {
       editor.commands.insertContent(" ");
     }
 
-    // Split text into words for progressive insertion
+    // Split text into words and wrap each in a span with fade animation
     const words = text.split(/(\s+)/); // Keep whitespace
+    const wrappedWords = words
+      .map((word, idx) => {
+        if (word.trim()) {
+          // Calculate staggered delay for each word (in milliseconds)
+          const delay = idx * 30; // 30ms between each word reveal
+          return `<span style="color: #e0b0ff; animation: fadeInWord 0.3s ease-in forwards; animation-delay: ${delay}ms; opacity: 0;">${word}</span>`;
+        } else {
+          // Whitespace - no animation needed
+          return word;
+        }
+      })
+      .join("");
 
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
+    // Insert all text at once with animations
+    editor.commands.insertContent(wrappedWords);
 
-      // Insert word with lavender color at cursor position
-      editor
-        .chain()
-        .focus()
-        .setColor("#e0b0ff") // Lavender color
-        .insertContent(word)
-        .run();
-
-      // Add small delay between words (adjust for speed)
-      await new Promise((resolve) => {
-        insertionTimeoutRef.current = setTimeout(resolve, 15);
-      });
-    }
+    // Wait for the animation to complete before clearing the mark
+    const totalDuration = words.length * 30 + 300; // Total animation time
+    await new Promise((resolve) => {
+      insertionTimeoutRef.current = setTimeout(resolve, totalDuration);
+    });
 
     // Clear the color mark so future typing is normal
     editor.commands.unsetColor();

@@ -37,18 +37,15 @@ body {
   margin-top: 0;
 }
 
-/* Green highlight for generated text */
-.ProseMirror mark[data-color="#d4f4dd"] {
-  background-color: #d4f4dd;
-  color: inherit;
-  padding: 0.1em 0;
-  border-radius: 0.2em;
-}
-
-@media (prefers-color-scheme: dark) {
-  .ProseMirror mark[data-color="#d4f4dd"] {
-    background-color: #1e4620;
-    color: inherit;
+/* Fade-in animation for generated text */
+@keyframes fadeInWord {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
