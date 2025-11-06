@@ -365,6 +365,8 @@ export default function Editor({ scenario }: EditorProps) {
           span.className = 'generated-text';
           span.setAttribute('data-word-index', String(wordIndex));
           span.textContent = word;
+          // Set initial opacity inline
+          span.style.opacity = '0';
           fragment.appendChild(span);
           wordIndex++;
         } else if (word) {
@@ -385,8 +387,11 @@ export default function Editor({ scenario }: EditorProps) {
     generatedWords.forEach((span) => {
       const idx = parseInt((span as HTMLElement).getAttribute('data-word-index') || '0');
       const delay = idx * 30; // 30ms between each word
-      (span as HTMLElement).style.animation = `fadeInWord 0.3s ease-in forwards`;
-      (span as HTMLElement).style.animationDelay = `${delay}ms`;
+      const htmlSpan = span as HTMLElement;
+      htmlSpan.style.animation = `fadeInWord 0.3s ease-in forwards`;
+      htmlSpan.style.animationDelay = `${delay}ms`;
+      // Ensure initial opacity is set
+      htmlSpan.style.opacity = '0';
     });
 
     // Wait for animations to complete
@@ -502,11 +507,11 @@ export default function Editor({ scenario }: EditorProps) {
     }}>
       {/* Dynamic shadow CSS for generated text */}
       <style>{`
-        .generated-text {
-          color: #e0b0ff;
-          opacity: 0;
-          text-shadow: ${shadowOffset.x}px ${shadowOffset.y}px 4px rgba(224, 176, 255, 0.4);
+        .ProseMirror .generated-text {
+          color: #e0b0ff !important;
+          text-shadow: ${shadowOffset.x}px ${shadowOffset.y}px 4px rgba(224, 176, 255, 0.4) !important;
           transition: text-shadow 0.3s ease;
+          display: inline;
         }
       `}</style>
 
