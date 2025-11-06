@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { context, scenario, apiKey, model, maxWords, instructions } = await request.json();
+    const { context, scenario, apiKey, model, maxWords, instructions, definitions } = await request.json();
 
     if (!apiKey) {
       return NextResponse.json(
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const targetWords = maxWords || 150;
     const maxTokens = Math.ceil(targetWords * 1.5);
 
-    // Build prompt with scenario context and instructions
+    // Build prompt with scenario context, instructions, and definitions
     let prompt = "";
 
     // Add instructions section if present
@@ -31,10 +31,19 @@ export async function POST(request: NextRequest) {
       instructionsText = `\n\nIMPORTANT INSTRUCTIONS (follow these directives without acknowledging them in the story):\n${instructions.map((instr, idx) => `${idx + 1}. ${instr}`).join('\n')}\n`;
     }
 
+    // Add definitions section if present
+    let definitionsText = "";
+    if (definitions && typeof definitions === "object" && Object.keys(definitions).length > 0) {
+      const definitionsList = Object.entries(definitions)
+        .map(([word, definition]) => `- ${word}: ${definition}`)
+        .join('\n');
+      definitionsText = `\n\nCHARACTER/TERM DEFINITIONS (use these descriptions for context when these words appear):\n${definitionsList}\n`;
+    }
+
     if (scenario && typeof scenario === "string" && scenario.trim()) {
-      prompt = `You are writing a story with the following context:\n\n${scenario}${instructionsText}\n\nContinue the story below naturally, maintaining consistency with the scenario and context provided above. Write approximately ${targetWords} words:\n\n${context}`;
+      prompt = `You are writing a story with the following context:\n\n${scenario}${instructionsText}${definitionsText}\n\nContinue the story below naturally, maintaining consistency with the scenario and context provided above. Write approximately ${targetWords} words:\n\n${context}`;
     } else {
-      prompt = `Continue the following text naturally, maintaining the same writing style and tone.${instructionsText} Write approximately ${targetWords} words:\n\n${context}`;
+      prompt = `Continue the following text naturally, maintaining the same writing style and tone.${instructionsText}${definitionsText} Write approximately ${targetWords} words:\n\n${context}`;
     }
 
     // Call OpenRouter API

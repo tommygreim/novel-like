@@ -8,6 +8,7 @@ import { ScenarioData } from "@/components/Scenario/ScenarioPanel";
 import { Extension, Mark } from "@tiptap/core";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
+import DefinitionModal from "@/components/Definition/DefinitionModal";
 
 // Custom extension for Tab indentation
 const IndentExtension = Extension.create({
@@ -189,6 +190,13 @@ export default function Editor({ scenario }: EditorProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [updateTrigger, setUpdateTrigger] = useState(0);
 
+  // Definition state
+  const [definitions, setDefinitions] = useState<Record<string, string>>({});
+  const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
+  const [selectedWord, setSelectedWord] = useState("");
+  const [showDefineButton, setShowDefineButton] = useState(false);
+  const [defineButtonPosition, setDefineButtonPosition] = useState({ x: 0, y: 0 });
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -257,6 +265,16 @@ export default function Editor({ scenario }: EditorProps) {
         .map(w => w.trim().toLowerCase())
         .filter(w => w.length > 0);
       setEmphasisWords(wordsArray);
+
+      // Load definitions
+      const savedDefinitions = localStorage.getItem("word_definitions");
+      if (savedDefinitions) {
+        try {
+          setDefinitions(JSON.parse(savedDefinitions));
+        } catch (e) {
+          console.error("Failed to parse definitions:", e);
+        }
+      }
 
       // Trigger emphasis effect after loading
       setTimeout(() => {
@@ -381,6 +399,86 @@ export default function Editor({ scenario }: EditorProps) {
     }
   };
 
+  // Apply underline styling to defined words
+  const applyDefinitionUnderlines = () => {
+    if (!editor || Object.keys(definitions).length === 0) return;
+
+    const editorElement = editor.view.dom;
+
+    // Remove all previous definition wrapping
+    editorElement.querySelectorAll('.defined-word').forEach((el) => {
+      const text = el.textContent || '';
+      const textNode = document.createTextNode(text);
+      if (el.parentNode) {
+        el.parentNode.replaceChild(textNode, el);
+      }
+    });
+
+    // Process all paragraph elements
+    const paragraphs = editorElement.querySelectorAll('p');
+    const definedWords = Object.keys(definitions);
+
+    paragraphs.forEach((paragraph) => {
+      // Get all text nodes in this paragraph
+      const walker = document.createTreeWalker(
+        paragraph,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      const textNodes: Text[] = [];
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        textNodes.push(node as Text);
+      }
+
+      // Process each text node
+      textNodes.forEach((textNode) => {
+        const text = textNode.textContent || '';
+        const words = text.split(/(\s+)/);
+
+        // Check if any words have definitions
+        const hasDefinedWord = words.some(word =>
+          definedWords.includes(word.toLowerCase().trim())
+        );
+
+        if (!hasDefinedWord) return;
+
+        // Build replacement fragment
+        const fragment = document.createDocumentFragment();
+
+        words.forEach((word) => {
+          const cleanWord = word.toLowerCase().trim();
+
+          if (cleanWord && definedWords.includes(cleanWord)) {
+            // Create wrapper for the defined word
+            const wordSpan = document.createElement('span');
+            wordSpan.className = 'defined-word';
+            wordSpan.textContent = word;
+            wordSpan.style.textDecoration = 'underline';
+            wordSpan.style.textDecorationColor = 'rgb(59, 130, 246)';
+            wordSpan.style.textUnderlineOffset = '2px';
+            wordSpan.style.cursor = 'pointer';
+            wordSpan.onclick = (e) => {
+              e.stopPropagation();
+              handleDefinedWordClick(word);
+            };
+
+            fragment.appendChild(wordSpan);
+          } else {
+            // Regular text
+            fragment.appendChild(document.createTextNode(word));
+          }
+        });
+
+        // Replace text node with fragment
+        if (textNode.parentNode) {
+          textNode.parentNode.replaceChild(fragment, textNode);
+        }
+      });
+    });
+  };
+
   // Apply emphasis effect when editor content changes or emphasis words change
   useEffect(() => {
     if (editor && emphasisWords.length > 0) {
@@ -391,6 +489,32 @@ export default function Editor({ scenario }: EditorProps) {
       return () => clearTimeout(timeoutId);
     }
   }, [updateTrigger, emphasisWords, editor]);
+
+  // Apply definition underlines when editor content changes or definitions change
+  useEffect(() => {
+    if (editor && Object.keys(definitions).length > 0) {
+      const timeoutId = setTimeout(() => {
+        applyDefinitionUnderlines();
+      }, 100); // Small delay to let DOM settle
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [updateTrigger, definitions, editor]);
+
+  // Listen for text selection changes
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleUpdate = () => {
+      handleSelectionChange();
+    };
+
+    editor.on("selectionUpdate", handleUpdate);
+
+    return () => {
+      editor.off("selectionUpdate", handleUpdate);
+    };
+  }, [editor, definitions]);
 
   // Extract [[instructions]] from text
   const extractInstructions = (text: string): { cleanText: string; instructions: string[] } => {
@@ -502,7 +626,19 @@ export default function Editor({ scenario }: EditorProps) {
       // Extract context (all character)
       const context = cleanText;
 
-      // Call our API route with scenario, maxWords, and instructions
+      // Extract definitions for words in last 300 words
+      const words = cleanText.split(/\s+/).filter(Boolean);
+      const last300Words = words.slice(-300);
+      const relevantDefinitions: Record<string, string> = {};
+
+      last300Words.forEach((word) => {
+        const cleanWord = word.toLowerCase().trim().replace(/[.,!?;:()'"]/g, '');
+        if (definitions[cleanWord]) {
+          relevantDefinitions[cleanWord] = definitions[cleanWord];
+        }
+      });
+
+      // Call our API route with scenario, maxWords, instructions, and definitions
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
@@ -515,6 +651,7 @@ export default function Editor({ scenario }: EditorProps) {
           model,
           maxWords,
           instructions: allInstructions,
+          definitions: relevantDefinitions,
         }),
       });
 
@@ -541,6 +678,62 @@ export default function Editor({ scenario }: EditorProps) {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Handle text selection for defining words
+  const handleSelectionChange = () => {
+    if (!editor) return;
+
+    const { state } = editor;
+    const { from, to } = state.selection;
+    const text = state.doc.textBetween(from, to, " ").trim();
+
+    // Only show Define button if we have a single word selected
+    if (text && text.split(/\s+/).length === 1) {
+      setSelectedWord(text);
+      setShowDefineButton(true);
+
+      // Get the selection position to position the button
+      const { view } = editor;
+      const start = view.coordsAtPos(from);
+      setDefineButtonPosition({ x: start.left, y: start.top - 40 });
+    } else {
+      setShowDefineButton(false);
+    }
+  };
+
+  // Open definition modal
+  const handleOpenDefineModal = () => {
+    setShowDefineButton(false);
+    setIsDefinitionModalOpen(true);
+  };
+
+  // Save definition
+  const handleSaveDefinition = (word: string, definition: string) => {
+    const normalizedWord = word.toLowerCase().trim();
+
+    const newDefinitions = { ...definitions };
+
+    if (definition) {
+      // Add or update definition
+      newDefinitions[normalizedWord] = definition;
+    } else {
+      // Delete definition
+      delete newDefinitions[normalizedWord];
+    }
+
+    setDefinitions(newDefinitions);
+    localStorage.setItem("word_definitions", JSON.stringify(newDefinitions));
+
+    // Trigger update to refresh underlines
+    setUpdateTrigger(prev => prev + 1);
+  };
+
+  // Handle clicking on a defined word
+  const handleDefinedWordClick = (word: string) => {
+    const normalizedWord = word.toLowerCase().trim();
+    setSelectedWord(word);
+    setIsDefinitionModalOpen(true);
   };
 
   return (
@@ -605,6 +798,33 @@ export default function Editor({ scenario }: EditorProps) {
           )}
         </button>
       </div>
+
+      {/* Define Button - appears on text selection */}
+      {showDefineButton && (
+        <button
+          onClick={handleOpenDefineModal}
+          className="fixed z-50 px-3 py-1.5 text-xs font-medium transition-all duration-200"
+          style={{
+            left: `${defineButtonPosition.x}px`,
+            top: `${defineButtonPosition.y}px`,
+            background: 'linear-gradient(135deg, rgb(37, 99, 235), rgb(126, 34, 206))',
+            borderRadius: '8px',
+            color: 'white',
+            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+          }}
+        >
+          Define
+        </button>
+      )}
+
+      {/* Definition Modal */}
+      <DefinitionModal
+        isOpen={isDefinitionModalOpen}
+        word={selectedWord}
+        existingDefinition={definitions[selectedWord.toLowerCase().trim()] || ""}
+        onClose={() => setIsDefinitionModalOpen(false)}
+        onSave={handleSaveDefinition}
+      />
     </div>
   );
 }
