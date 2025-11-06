@@ -311,18 +311,35 @@ export default function Editor({ scenario }: EditorProps) {
       }
     });
 
-    // Find and wrap matching words
-    const walker = document.createTreeWalker(
-      editorElement,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
+    // Small delay to let DOM settle after cleanup
+    setTimeout(() => {
+      // Find and wrap matching words - only in paragraph elements
+      const paragraphs = editorElement.querySelectorAll('p');
 
-    const textNodes: Text[] = [];
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-      textNodes.push(node as Text);
-    }
+      paragraphs.forEach((paragraph) => {
+        const walker = document.createTreeWalker(
+          paragraph,
+          NodeFilter.SHOW_TEXT,
+          {
+            acceptNode: (node) => {
+              // Skip if already inside an emphasis word
+              let parent = node.parentNode;
+              while (parent && parent !== paragraph) {
+                if (parent instanceof HTMLElement && parent.classList.contains('emphasis-word')) {
+                  return NodeFilter.FILTER_REJECT;
+                }
+                parent = parent.parentNode;
+              }
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          }
+        );
+
+        const textNodes: Text[] = [];
+        let node: Node | null;
+        while ((node = walker.nextNode())) {
+          textNodes.push(node as Text);
+        }
 
     textNodes.forEach((textNode) => {
       const text = textNode.textContent || '';
@@ -344,12 +361,16 @@ export default function Editor({ scenario }: EditorProps) {
           // Create a span for the word
           const wordSpan = document.createElement('span');
           wordSpan.className = 'emphasis-word';
+          wordSpan.style.display = 'inline';
+          wordSpan.style.whiteSpace = 'nowrap';
 
           // Wrap each character in a span
           for (let i = 0; i < word.length; i++) {
             const charSpan = document.createElement('span');
             charSpan.className = 'emphasis-char';
             charSpan.textContent = word[i];
+            charSpan.style.display = 'inline-block';
+            charSpan.style.animationPlayState = 'running'; // Explicitly start animation
             wordSpan.appendChild(charSpan);
           }
 
@@ -363,13 +384,15 @@ export default function Editor({ scenario }: EditorProps) {
         textNode.parentNode.replaceChild(fragment, textNode);
       }
     });
+      }); // Close paragraph forEach
 
-    // Observe all paragraphs for viewport visibility
-    if (observerRef.current) {
-      editorElement.querySelectorAll('p').forEach((p) => {
-        observerRef.current?.observe(p);
-      });
-    }
+      // Observe all paragraphs for viewport visibility
+      if (observerRef.current) {
+        editorElement.querySelectorAll('p').forEach((p) => {
+          observerRef.current?.observe(p);
+        });
+      }
+    }, 10); // Close setTimeout
   };
 
   // Apply emphasis effect when editor content changes or emphasis words change
