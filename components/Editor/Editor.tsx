@@ -187,6 +187,7 @@ export default function Editor({ scenario }: EditorProps) {
   const [previousInstructions, setPreviousInstructions] = useState<string[]>([]);
   const [emphasisWords, setEmphasisWords] = useState<string[]>([]);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const [updateTrigger, setUpdateTrigger] = useState(0);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -229,6 +230,9 @@ export default function Editor({ scenario }: EditorProps) {
         }
         node = node.parentNode;
       }
+
+      // Trigger emphasis effect update
+      setUpdateTrigger(prev => prev + 1);
     },
   });
 
@@ -253,6 +257,11 @@ export default function Editor({ scenario }: EditorProps) {
         .map(w => w.trim().toLowerCase())
         .filter(w => w.length > 0);
       setEmphasisWords(wordsArray);
+
+      // Trigger emphasis effect after loading
+      setTimeout(() => {
+        setUpdateTrigger(prev => prev + 1);
+      }, 200);
     }
   }, [editor]);
 
@@ -372,7 +381,7 @@ export default function Editor({ scenario }: EditorProps) {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [editor?.state.doc.content, emphasisWords]);
+  }, [updateTrigger, emphasisWords, editor]);
 
   // Extract [[instructions]] from text
   const extractInstructions = (text: string): { cleanText: string; instructions: string[] } => {
