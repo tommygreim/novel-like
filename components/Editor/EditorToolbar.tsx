@@ -1,10 +1,9 @@
 "use client";
 
-import { Editor } from "@tiptap/react";
 import { useState } from "react";
 
 interface EditorToolbarProps {
-  editor: Editor | null;
+  editor: any | null;
   maxWords: number;
   onMaxWordsChange: (value: number) => void;
 }
@@ -16,8 +15,6 @@ export default function EditorToolbar({
 }: EditorToolbarProps) {
   const [showMaxWordsInput, setShowMaxWordsInput] = useState(false);
 
-  if (!editor) return null;
-
   const handleMaxWordsChange = (value: number) => {
     onMaxWordsChange(value);
     localStorage.setItem("max_words", value.toString());
@@ -27,7 +24,7 @@ export default function EditorToolbar({
     const sessionName = prompt("Enter a name for this file:") || "session";
 
     const sessionData = {
-      content: editor.getHTML(),
+      content: localStorage.getItem("editor_content") || "",
       scenario: localStorage.getItem("story_scenario") || "",
       timestamp: new Date().toISOString(),
       maxWords: maxWords,
@@ -62,7 +59,6 @@ export default function EditorToolbar({
 
           // Load the session data
           if (sessionData.content) {
-            editor.commands.setContent(sessionData.content);
             localStorage.setItem("editor_content", sessionData.content);
           }
 
@@ -95,49 +91,6 @@ export default function EditorToolbar({
       backdropFilter: 'blur(10px)',
       WebkitBackdropFilter: 'blur(10px)'
     }}>
-      {/* Basic formatting buttons */}
-      <div className="flex gap-2 p-1" style={{
-        background: 'rgba(255, 255, 255, 0.5)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        borderRadius: '10px',
-        border: '1px solid rgba(229, 231, 235, 0.3)'
-      }}>
-        <button
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          disabled={!editor.can().chain().focus().toggleBold().run()}
-          className="px-3 py-1.5 text-sm font-bold transition-all duration-200"
-          style={editor.isActive("bold") ? {
-            background: 'rgba(59, 130, 246, 0.2)',
-            color: 'rgb(29, 78, 216)',
-            borderRadius: '8px',
-            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)'
-          } : {
-            color: 'rgb(75, 85, 99)',
-            borderRadius: '8px'
-          }}
-        >
-          B
-        </button>
-
-        <button
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          disabled={!editor.can().chain().focus().toggleItalic().run()}
-          className="px-3 py-1.5 text-sm font-medium italic transition-all duration-200"
-          style={editor.isActive("italic") ? {
-            background: 'rgba(59, 130, 246, 0.2)',
-            color: 'rgb(29, 78, 216)',
-            borderRadius: '8px',
-            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)'
-          } : {
-            color: 'rgb(75, 85, 99)',
-            borderRadius: '8px'
-          }}
-        >
-          I
-        </button>
-      </div>
-
       {/* Save/Load buttons */}
       <div className="flex gap-2 p-1" style={{
         background: 'rgba(255, 255, 255, 0.5)',
@@ -207,17 +160,6 @@ export default function EditorToolbar({
         )}
       </div>
 
-      {/* Word count */}
-      <span className="text-sm px-3 py-1.5" style={{
-        color: 'rgb(75, 85, 99)',
-        background: 'rgba(255, 255, 255, 0.3)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        borderRadius: '10px',
-        border: '1px solid rgba(229, 231, 235, 0.3)'
-      }}>
-        {editor.storage.characterCount?.words() || editor.getText().split(/\s+/).filter(Boolean).length} words
-      </span>
     </div>
   );
 }

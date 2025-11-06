@@ -72,6 +72,30 @@ function AutoSavePlugin({ onSave }: { onSave: (content: string) => void }) {
   return <OnChangePlugin onChange={handleChange} />;
 }
 
+// Plugin to load saved content
+function LoadContentPlugin() {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedContent = localStorage.getItem("editor_content");
+      if (savedContent && savedContent !== "Start writing your story here...") {
+        editor.update(() => {
+          const root = $getRoot();
+          root.clear();
+
+          const paragraph = $createParagraphNode();
+          const textNode = $createTextNode(savedContent);
+          paragraph.append(textNode);
+          root.append(paragraph);
+        });
+      }
+    }
+  }, [editor]);
+
+  return null;
+}
+
 // Plugin to apply emphasis words effect
 function EmphasisWordsPlugin({ words }: { words: string[] }) {
   const [editor] = useLexicalComposerContext();
@@ -83,11 +107,26 @@ function EmphasisWordsPlugin({ words }: { words: string[] }) {
       const editorElement = editor.getRootElement();
       if (!editorElement) return;
 
-      // Find all text nodes
+      // Remove existing emphasis spans first to avoid duplicates
+      editorElement.querySelectorAll(".emphasis-word").forEach((span) => {
+        const text = span.textContent || "";
+        const textNode = document.createTextNode(text);
+        span.parentNode?.replaceChild(textNode, span);
+      });
+
+      // Find all text nodes (but skip those already in emphasis spans)
       const walker = document.createTreeWalker(
         editorElement,
         NodeFilter.SHOW_TEXT,
-        null
+        {
+          acceptNode: (node) => {
+            // Skip if parent is already an emphasis word
+            if (node.parentElement?.classList.contains('emphasis-char')) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
       );
 
       const textNodes: Text[] = [];
@@ -152,38 +191,11 @@ function EmphasisWordsPlugin({ words }: { words: string[] }) {
       });
     };
 
-    // Apply emphasis on initial render and after updates
-    const timeoutId = setTimeout(applyEmphasis, 100);
-
-    // Set up mutation observer
-    const editorElement = editor.getRootElement();
-    if (editorElement) {
-      const observer = new MutationObserver(() => {
-        // Remove old emphasis spans first
-        editorElement.querySelectorAll(".emphasis-word").forEach((span) => {
-          const text = span.textContent || "";
-          const textNode = document.createTextNode(text);
-          span.parentNode?.replaceChild(textNode, span);
-        });
-
-        // Reapply emphasis
-        setTimeout(applyEmphasis, 50);
-      });
-
-      observer.observe(editorElement, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-
-      return () => {
-        clearTimeout(timeoutId);
-        observer.disconnect();
-      };
-    }
+    // Apply emphasis with a delay to avoid scroll issues
+    const timeoutId = setTimeout(applyEmphasis, 200);
 
     return () => clearTimeout(timeoutId);
-  }, [editor, words]);
+  }, [editor, words, words.length]);
 
   return null;
 }
@@ -380,38 +392,44 @@ export default function Editor({ scenario }: EditorProps) {
           onMaxWordsChange={setMaxWords}
         />
 
-        <div className="px-16 py-12" style={{ minHeight: "11in" }}>
+        <div className="px-16 py-12" style={{ minHeight: "11in", position: "relative" }}>
           <LexicalComposer initialConfig={initialConfig}>
-            <RichTextPlugin
-              contentEditable={
-                <ContentEditable
-                  className="editor-content-editable"
-                  style={{
-                    outline: "none",
-                    minHeight: "500px",
-                    lineHeight: "1.6",
-                    fontSize: "16px",
-                  }}
-                />
-              }
-              placeholder={
-                <div
-                  className="editor-placeholder"
-                  style={{
-                    position: "absolute",
-                    top: "0",
-                    left: "0",
-                    color: "#999",
-                    pointerEvents: "none",
-                  }}
-                >
-                  Start writing your story here...
-                </div>
-              }
-              ErrorBoundary={(props: any) => <div className="error-boundary">{props.children}</div>}
-            />
+            <div style={{ position: "relative" }}>
+              <RichTextPlugin
+                contentEditable={
+                  <ContentEditable
+                    className="editor-content-editable"
+                    style={{
+                      outline: "none",
+                      minHeight: "500px",
+                      lineHeight: "1.6",
+                      fontSize: "16px",
+                      position: "relative",
+                    }}
+                  />
+                }
+                placeholder={
+                  <div
+                    className="editor-placeholder"
+                    style={{
+                      position: "absolute",
+                      top: "0",
+                      left: "0",
+                      color: "#999",
+                      pointerEvents: "none",
+                      lineHeight: "1.6",
+                      fontSize: "16px",
+                    }}
+                  >
+                    Start writing your story here...
+                  </div>
+                }
+                ErrorBoundary={(props: any) => <div className="error-boundary">{props.children}</div>}
+              />
+            </div>
             <HistoryPlugin />
             <TabIndentPlugin />
+            <LoadContentPlugin />
             <AutoSavePlugin onSave={handleSave} />
             <EmphasisWordsPlugin words={emphasisWords} />
             <EditorRefPlugin editorRef={editorRef} />
