@@ -9,6 +9,7 @@ export default function Editor() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [StarterKit],
     content: "<p>Start writing your story here...</p>",
     editorProps: {

@@ -47,6 +47,11 @@ const AVAILABLE_MODELS = [
     name: "Mixtral 8x7B",
     description: "Fast mixture of experts",
   },
+  {
+    id: "x-ai/grok-4-fast",
+    name: "xAI: Grok 4 Fast",
+    description: "2M Context Window",
+  },
 ];
 
 export default function ModelSelector({
