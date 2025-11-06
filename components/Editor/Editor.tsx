@@ -107,36 +107,14 @@ function EmphasisWordsPlugin({ words }: { words: string[] }) {
       const editorElement = editor.getRootElement();
       if (!editorElement) return;
 
-      // Remove existing emphasis spans first to avoid duplicates
-      editorElement.querySelectorAll(".emphasis-word").forEach((span) => {
+      // Find all Lexical text spans
+      const lexicalTextSpans = editorElement.querySelectorAll('span[data-lexical-text="true"]');
+
+      lexicalTextSpans.forEach((span) => {
+        // Skip if already processed
+        if (span.querySelector('.emphasis-char')) return;
+
         const text = span.textContent || "";
-        const textNode = document.createTextNode(text);
-        span.parentNode?.replaceChild(textNode, span);
-      });
-
-      // Find all text nodes (but skip those already in emphasis spans)
-      const walker = document.createTreeWalker(
-        editorElement,
-        NodeFilter.SHOW_TEXT,
-        {
-          acceptNode: (node) => {
-            // Skip if parent is already an emphasis word
-            if (node.parentElement?.classList.contains('emphasis-char')) {
-              return NodeFilter.FILTER_REJECT;
-            }
-            return NodeFilter.FILTER_ACCEPT;
-          }
-        }
-      );
-
-      const textNodes: Text[] = [];
-      let node;
-      while ((node = walker.nextNode())) {
-        textNodes.push(node as Text);
-      }
-
-      textNodes.forEach((textNode) => {
-        const text = textNode.textContent || "";
         const wordRegex = /\b[\w']+\b/g;
         let match;
         const replacements: { start: number; end: number; word: string }[] = [];
@@ -152,50 +130,50 @@ function EmphasisWordsPlugin({ words }: { words: string[] }) {
           }
         }
 
-        if (replacements.length > 0 && textNode.parentElement) {
-          // Build replacement fragment
-          const fragment = document.createDocumentFragment();
+        if (replacements.length > 0) {
+          // Build replacement HTML
+          let html = "";
           let lastIndex = 0;
 
           replacements.forEach(({ start, end, word }) => {
             // Add text before the word
             if (start > lastIndex) {
-              fragment.appendChild(
-                document.createTextNode(text.substring(lastIndex, start))
-              );
+              html += text.substring(lastIndex, start);
             }
 
             // Add the emphasized word
-            const wordSpan = document.createElement("span");
-            wordSpan.className = "emphasis-word";
-
+            html += '<span class="emphasis-word">';
             for (let i = 0; i < word.length; i++) {
-              const charSpan = document.createElement("span");
-              charSpan.className = "emphasis-char";
-              charSpan.textContent = word[i];
-              wordSpan.appendChild(charSpan);
+              html += `<span class="emphasis-char">${word[i]}</span>`;
             }
-
-            fragment.appendChild(wordSpan);
+            html += '</span>';
             lastIndex = end;
           });
 
           // Add remaining text
           if (lastIndex < text.length) {
-            fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+            html += text.substring(lastIndex);
           }
 
-          // Replace the text node
-          textNode.parentElement.replaceChild(fragment, textNode);
+          // Replace the innerHTML
+          span.innerHTML = html;
         }
       });
     };
 
-    // Apply emphasis with a delay to avoid scroll issues
-    const timeoutId = setTimeout(applyEmphasis, 200);
+    // Register update listener to apply emphasis after every update
+    const removeUpdateListener = editor.registerUpdateListener(() => {
+      // Use setTimeout to let Lexical finish its update first
+      setTimeout(applyEmphasis, 50);
+    });
 
-    return () => clearTimeout(timeoutId);
-  }, [editor, words, words.length]);
+    // Apply emphasis initially
+    setTimeout(applyEmphasis, 100);
+
+    return () => {
+      removeUpdateListener();
+    };
+  }, [editor, words]);
 
   return null;
 }
