@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
+    console.log(context);
     // Calculate max_tokens from maxWords (roughly 1.3-1.5 tokens per word)
     const targetWords = maxWords || 150;
     const maxTokens = Math.ceil(targetWords * 1.5);

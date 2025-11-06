@@ -499,8 +499,8 @@ export default function Editor({ scenario }: EditorProps) {
       // Combine with previous instructions
       const allInstructions = [...previousInstructions, ...newInstructions];
 
-      // Extract context (last 2000 characters of clean text)
-      const context = cleanText.slice(-2000);
+      // Extract context (all character)
+      const context = cleanText;
 
       // Call our API route with scenario, maxWords, and instructions
       const response = await fetch("/api/generate", {
