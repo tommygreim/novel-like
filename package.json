@@ -18,6 +18,8 @@
   "license": "ISC",
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.16",
+    "@tiptap/extension-highlight": "^3.10.2",
+    "@tiptap/extension-text-style": "^3.10.2",
     "@tiptap/pm": "^3.10.2",
     "@tiptap/react": "^3.10.2",
     "@tiptap/starter-kit": "^3.10.2",

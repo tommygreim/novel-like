@@ -30,13 +30,29 @@ body {
 .ProseMirror {
   outline: none;
   min-height: 500px;
-  padding: 1rem;
+  padding: 0;
+  line-height: 1.6;
 }
 
 .ProseMirror p {
-  margin: 0.5rem 0;
+  margin: 1em 0;
 }
 
-.ProseMirror:first-child {
+.ProseMirror p:first-child {
   margin-top: 0;
+}
+
+/* Green highlight for generated text */
+.ProseMirror mark[data-color="#86efac"] {
+  background-color: #86efac;
+  color: inherit;
+  padding: 0.1em 0;
+  border-radius: 0.2em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ProseMirror mark[data-color="#86efac"] {
+    background-color: #166534;
+    color: #dcfce7;
+  }
 }

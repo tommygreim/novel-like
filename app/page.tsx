@@ -3,9 +3,14 @@
 import { useState } from "react";
 import Editor from "@/components/Editor/Editor";
 import SettingsModal from "@/components/Settings/SettingsModal";
+import ScenarioPanel, { ScenarioData } from "@/components/Scenario/ScenarioPanel";
+
+type Tab = "editor" | "scenario";
 
 export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("editor");
+  const [scenario, setScenario] = useState<ScenarioData | null>(null);
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -24,7 +29,37 @@ export default function Home() {
           </div>
         </header>
 
-        <Editor />
+        {/* Tabs */}
+        <div className="bg-white dark:bg-gray-950 border-x border-gray-200 dark:border-gray-800">
+          <div className="flex border-b border-gray-200 dark:border-gray-800">
+            <button
+              onClick={() => setActiveTab("editor")}
+              className={`px-6 py-3 text-sm font-medium transition-colors ${
+                activeTab === "editor"
+                  ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              }`}
+            >
+              Editor
+            </button>
+            <button
+              onClick={() => setActiveTab("scenario")}
+              className={`px-6 py-3 text-sm font-medium transition-colors ${
+                activeTab === "scenario"
+                  ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              }`}
+            >
+              Scenario
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "editor" && <Editor scenario={scenario} />}
+        {activeTab === "scenario" && (
+          <ScenarioPanel onScenarioChange={setScenario} />
+        )}
 
         <SettingsModal
           isOpen={isSettingsOpen}
