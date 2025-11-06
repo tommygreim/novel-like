@@ -15,6 +15,7 @@ import {
   EditorState,
   LexicalEditor as LexicalEditorType,
   COMMAND_PRIORITY_LOW,
+  createTextNode,
   KEY_TAB_COMMAND,
   TextNode,
   ElementNode,
@@ -96,84 +97,160 @@ function LoadContentPlugin() {
   return null;
 }
 
+import {$isTextNode } from "lexical";
+
+// Helper to apply styles
+function applyEmphasis(editor: LexicalEditorType, words: string[]) {
+  editor.update(() => {
+    const root = $getRoot();
+    const textNodes = root.getAllTextNodes();
+    
+    // Create a regex from the words list
+    // This regex finds any of the words, ignoring case, as whole words
+    const regex = new RegExp(`\\b(${words.join("|")})\\b`, "gi");
+
+    textNodes.forEach((node) => {
+      // First, clear any existing styles to prevent duplicates
+      if (node.hasStyle("animation")) {
+        node.setStyle("");
+      }
+
+      const text = node.getTextContent();
+      let match;
+
+      while ((match = regex.exec(text)) !== null) {
+        const word = match[0];
+        const startIndex = match.index;
+        const endIndex = startIndex + word.length;
+
+        // We need to split the node to isolate the word
+        let targetNode: TextNode = node;
+
+        // 1. Split after the word
+        if (endIndex < text.length) {
+          targetNode = node.splitText(endIndex)[0];
+        }
+
+        // 2. Split before the word
+        if (startIndex > 0) {
+          targetNode = targetNode.splitText(startIndex)[1];
+        }
+
+        // Now, targetNode only contains our emphasis word
+        // Apply the jiggle animation style directly
+        targetNode.setStyle(
+          "display: inline-block; animation: jiggle 1.5s ease-in-out infinite;"
+        );
+        
+        // After splitting, we need to re-process the *rest* of the original node
+        // The easiest way is just to let the loop continue with the remaining nodes
+        // (This logic might need refinement depending on node structure)
+      }
+    });
+  });
+}
+
+/**
+ * This is the transform function that Lexical will run on
+ * any TextNode that is marked as "dirty" (changed).
+ */
+function emphasisTransform(node: TextNode, words: string[]) {
+  const text = node.getTextContent();
+  
+  // If no words, we don't need the regex
+  if (words.length === 0) return;
+
+  // Create a regex from the words list
+  const regex = new RegExp(`\\b(${words.join("|")})\\b`, "gi");
+
+  // We need a way to "un-style" words if they are edited
+  if (node.getStyle().includes("animation")) {
+    const isWordMatch = regex.test(text) && text.match(regex)?.length === 1 && text.match(regex)?.[0].length === text.length;
+    if (!isWordMatch) {
+      // The text was edited and is no longer *just* an emphasis word
+      const writable = node.getWritable();
+      writable.setStyle("");
+    }
+    return; // Already styled, or just un-styled. Don't try to split it.
+  }
+
+  // Find all matches in this node
+  let match;
+  let lastIndex = 0;
+  let needsSplitting = false;
+  const splits: TextNode[] = [];
+
+  while ((match = regex.exec(text)) !== null) {
+    needsSplitting = true;
+    const word = match[0];
+    const startIndex = match.index;
+    const endIndex = startIndex + word.length;
+
+    // 1. Add the text *before* the match (if any)
+    if (startIndex > lastIndex) {
+      splits.push($createTextNode(text.substring(lastIndex, startIndex)));
+    }
+
+    // 2. Create the new, styled node for the word
+    const styledNode = $createTextNode(word);
+    styledNode.setStyle(
+      "display: inline-block; animation: jiggle 1.5s ease-in-out infinite;"
+    );
+    splits.push(styledNode);
+
+    lastIndex = endIndex;
+  }
+
+  // 3. If we had matches, replace the original node
+  if (needsSplitting) {
+    // Add any remaining text *after* the last match
+    if (lastIndex < text.length) {
+      splits.push($createTextNode(text.substring(lastIndex)));
+    }
+    
+    // Replace the original node with all the new splits
+    // We must insert them in reverse order *after* the current node
+    // and then remove the current node.
+    splits.reverse().forEach(splitNode => {
+      node.insertAfter(splitNode);
+    });
+    node.remove();
+  }
+}
+
 // Plugin to apply emphasis words effect
-function EmphasisWordsPlugin({ words }: { words: string[] }) {
+export function EmphasisWordsPlugin({ words }: { words: string[] }) {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
-    if (words.length === 0) return;
-
-    const applyEmphasis = () => {
-      const editorElement = editor.getRootElement();
-      if (!editorElement) return;
-
-      // Find all Lexical text spans
-      const lexicalTextSpans = editorElement.querySelectorAll('span[data-lexical-text="true"]');
-
-      lexicalTextSpans.forEach((span) => {
-        // Skip if already processed
-        if (span.querySelector('.emphasis-char')) return;
-
-        const text = span.textContent || "";
-        const wordRegex = /\b[\w']+\b/g;
-        let match;
-        const replacements: { start: number; end: number; word: string }[] = [];
-
-        while ((match = wordRegex.exec(text)) !== null) {
-          const word = match[0];
-          if (words.includes(word.toLowerCase())) {
-            replacements.push({
-              start: match.index,
-              end: match.index + word.length,
-              word: word,
-            });
-          }
+    // Register the transform
+    const unregisterTransform = editor.registerNodeTransform(TextNode, (node) => {
+      // If list is empty, just clear styles
+      if (words.length === 0) {
+        if (node.getStyle().includes("animation")) {
+          node.getWritable().setStyle("");
         }
-
-        if (replacements.length > 0) {
-          // Build replacement HTML
-          let html = "";
-          let lastIndex = 0;
-
-          replacements.forEach(({ start, end, word }) => {
-            // Add text before the word
-            if (start > lastIndex) {
-              html += text.substring(lastIndex, start);
-            }
-
-            // Add the emphasized word
-            html += '<span class="emphasis-word">';
-            for (let i = 0; i < word.length; i++) {
-              html += `<span class="emphasis-char">${word[i]}</span>`;
-            }
-            html += '</span>';
-            lastIndex = end;
-          });
-
-          // Add remaining text
-          if (lastIndex < text.length) {
-            html += text.substring(lastIndex);
-          }
-
-          // Replace the innerHTML
-          span.innerHTML = html;
-        }
-      });
-    };
-
-    // Register update listener to apply emphasis after every update
-    const removeUpdateListener = editor.registerUpdateListener(() => {
-      // Use setTimeout to let Lexical finish its update first
-      setTimeout(applyEmphasis, 50);
+        return;
+      }
+      
+      // Run the transform logic
+      emphasisTransform(node, words);
     });
 
-    // Apply emphasis initially
-    setTimeout(applyEmphasis, 100);
+    // When the words list changes, we need to "kick" the editor
+    // to re-process all nodes.
+    editor.update(() => {
+      $getRoot().getAllTextNodes().forEach(node => {
+        // Marking as dirty forces the transform to re-run on this node
+        node.markDirty(); 
+      });
+    });
 
+    // Cleanup: remove the transform when the component unmounts
     return () => {
-      removeUpdateListener();
+      unregisterTransform();
     };
-  }, [editor, words]);
+  }, [editor, words]); // Re-run if the editor instance or the words list changes
 
   return null;
 }
