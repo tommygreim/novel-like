@@ -6,6 +6,93 @@ import { useState, useRef, useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
 import Highlight from "@tiptap/extension-highlight";
 import { ScenarioData } from "@/components/Scenario/ScenarioPanel";
+import { Extension } from "@tiptap/core";
+
+// Custom extension for Tab indentation
+const IndentExtension = Extension.create({
+  name: "indent",
+
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        const { state, dispatch } = this.editor.view;
+        const { $from } = state.selection;
+        const node = $from.node();
+
+        if (node.type.name === "paragraph") {
+          const tr = state.tr;
+          const pos = $from.before();
+
+          // Get current indent level
+          const currentIndent = node.attrs.indent || 0;
+          const newIndent = currentIndent + 1;
+
+          // Update node with new indent
+          tr.setNodeMarkup(pos, null, {
+            ...node.attrs,
+            indent: newIndent,
+          });
+
+          dispatch(tr);
+          return true;
+        }
+
+        return false;
+      },
+      "Shift-Tab": () => {
+        const { state, dispatch } = this.editor.view;
+        const { $from } = state.selection;
+        const node = $from.node();
+
+        if (node.type.name === "paragraph") {
+          const tr = state.tr;
+          const pos = $from.before();
+
+          // Get current indent level
+          const currentIndent = node.attrs.indent || 0;
+          const newIndent = Math.max(0, currentIndent - 1);
+
+          // Update node with new indent
+          tr.setNodeMarkup(pos, null, {
+            ...node.attrs,
+            indent: newIndent,
+          });
+
+          dispatch(tr);
+          return true;
+        }
+
+        return false;
+      },
+    };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph"],
+        attributes: {
+          indent: {
+            default: 0,
+            parseHTML: (element) => {
+              const style = element.getAttribute("style") || "";
+              const match = style.match(/margin-left:\s*(\d+)px/);
+              return match ? parseInt(match[1], 10) / 40 : 0;
+            },
+            renderHTML: (attributes) => {
+              if (!attributes.indent) {
+                return {};
+              }
+              return {
+                style: `margin-left: ${attributes.indent * 40}px`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+});
 
 interface EditorProps {
   scenario: ScenarioData | null;
@@ -15,6 +102,7 @@ export default function Editor({ scenario }: EditorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [maxWords, setMaxWords] = useState(150);
   const insertionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const generatingTextRef = useRef<string>("");
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -23,6 +111,7 @@ export default function Editor({ scenario }: EditorProps) {
       Highlight.configure({
         multicolor: true,
       }),
+      IndentExtension,
     ],
     content: "<p>Start writing your story here...</p>",
     editorProps: {
@@ -69,23 +158,33 @@ export default function Editor({ scenario }: EditorProps) {
     }
   }, [editor]);
 
-  // Progressive text insertion function
+  // Progressive text insertion function - inserts at a fixed position
   const insertTextProgressively = async (text: string) => {
     if (!editor) return;
 
+    // Store the text being generated
+    generatingTextRef.current = text;
+
     // Clear any previous highlights
-    editor.commands.selectAll();
-    editor.commands.unsetHighlight();
-    editor.commands.focus("end");
+    const { tr } = editor.state;
+    editor.view.dispatch(
+      tr.removeMark(0, editor.state.doc.content.size, editor.schema.marks.highlight)
+    );
+
+    // Get the end position before starting insertion
+    const startPos = editor.state.doc.content.size;
 
     // Split text into words for progressive insertion
     const words = text.split(/(\s+)/); // Keep whitespace
+    let insertedLength = 0;
 
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
 
-      // Insert word
-      editor.commands.insertContent(word);
+      // Insert word at the calculated position (not at cursor)
+      const insertPosition = startPos + insertedLength;
+      editor.commands.insertContentAt(insertPosition, word);
+      insertedLength += word.length;
 
       // Add small delay between words (adjust for speed)
       await new Promise((resolve) => {
@@ -94,16 +193,16 @@ export default function Editor({ scenario }: EditorProps) {
     }
 
     // After all text is inserted, highlight it
-    const endPos = editor.state.selection.from;
-    const startPos = endPos - text.length;
+    const endPos = startPos + text.length;
 
     editor
       .chain()
-      .focus()
       .setTextSelection({ from: startPos, to: endPos })
       .setHighlight({ color: "#d4f4dd" }) // dimmer green
-      .focus("end")
+      .setTextSelection({ from: endPos, to: endPos }) // Move cursor to end
       .run();
+
+    generatingTextRef.current = "";
   };
 
   const handleGenerate = async () => {
@@ -172,8 +271,6 @@ export default function Editor({ scenario }: EditorProps) {
         boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)'
       }}>
         <EditorToolbar
-          onGenerate={handleGenerate}
-          isGenerating={isGenerating}
           editor={editor}
           maxWords={maxWords}
           onMaxWordsChange={setMaxWords}
@@ -181,6 +278,49 @@ export default function Editor({ scenario }: EditorProps) {
         <div className="px-16 py-12" style={{ minHeight: '11in' }}>
           <EditorContent editor={editor} />
         </div>
+      </div>
+
+      {/* Floating Generate Panel - Bottom Left */}
+      <div className="fixed bottom-8 left-8 z-50 glass-panel" style={{
+        borderRadius: '16px',
+        padding: '16px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
+      }}>
+        <button
+          onClick={handleGenerate}
+          disabled={isGenerating}
+          className="px-6 py-3 text-sm font-medium transition-all duration-200 glass-button"
+          style={{
+            borderRadius: '12px',
+            color: 'white',
+            opacity: isGenerating ? 0.7 : 1,
+            minWidth: '140px'
+          }}
+        >
+          {isGenerating ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Generating...
+            </span>
+          ) : (
+            "Generate"
+          )}
+        </button>
       </div>
     </div>
   );
