@@ -15,7 +15,6 @@ import {
   EditorState,
   LexicalEditor as LexicalEditorType,
   COMMAND_PRIORITY_LOW,
-  createTextNode,
   KEY_TAB_COMMAND,
   TextNode,
   ElementNode,
@@ -111,7 +110,7 @@ function applyEmphasis(editor: LexicalEditorType, words: string[]) {
 
     textNodes.forEach((node) => {
       // First, clear any existing styles to prevent duplicates
-      if (node.hasStyle("animation")) {
+      if (node.getStyle().includes("animation")) {
         node.setStyle("");
       }
 
@@ -137,9 +136,9 @@ function applyEmphasis(editor: LexicalEditorType, words: string[]) {
         }
 
         // Now, targetNode only contains our emphasis word
-        // Apply the jiggle animation style directly
+        // Apply the wave animation style directly
         targetNode.setStyle(
-          "display: inline-block; animation: jiggle 1.5s ease-in-out infinite;"
+          "display: inline-block; animation: wave 2s ease-in-out infinite;"
         );
         
         // After splitting, we need to re-process the *rest* of the original node
@@ -194,7 +193,7 @@ function emphasisTransform(node: TextNode, words: string[]) {
     // 2. Create the new, styled node for the word
     const styledNode = $createTextNode(word);
     styledNode.setStyle(
-      "display: inline-block; animation: jiggle 1.5s ease-in-out infinite;"
+      "display: inline-block; animation: wave 2s ease-in-out infinite;"
     );
     splits.push(styledNode);
 

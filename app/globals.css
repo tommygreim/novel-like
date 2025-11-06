@@ -37,19 +37,19 @@ body {
   margin-top: 0;
 }
 
-/* Jiggling animation for emphasis words */
-@keyframes jiggle {
+/* Wave animation for emphasis words - subtle flag-like effect */
+@keyframes wave {
   0%, 100% {
-    transform: translateY(0px) rotate(0deg);
+    transform: skewY(0deg) translateX(0px);
   }
   25% {
-    transform: translateY(-3px) rotate(2deg);
+    transform: skewY(-1deg) translateX(-0.5px);
   }
   50% {
-    transform: translateY(-1px) rotate(-1deg);
+    transform: skewY(1deg) translateX(0.5px);
   }
   75% {
-    transform: translateY(-2px) rotate(1deg);
+    transform: skewY(-0.5deg) translateX(-0.25px);
   }
 }
 
