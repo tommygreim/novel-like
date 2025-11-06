@@ -24,47 +24,68 @@ export default function EditorToolbar({
   };
 
   const handleSaveSession = () => {
-    const sessionName = prompt("Enter a name for this session:");
-    if (!sessionName) return;
+    const sessionName = prompt("Enter a name for this file:") || "session";
 
-    const sessions = JSON.parse(localStorage.getItem("saved_sessions") || "{}");
-    sessions[sessionName] = {
+    const sessionData = {
       content: editor.getHTML(),
       scenario: localStorage.getItem("story_scenario") || "",
       timestamp: new Date().toISOString(),
+      maxWords: maxWords,
     };
-    localStorage.setItem("saved_sessions", JSON.stringify(sessions));
-    alert(`Session "${sessionName}" saved!`);
+
+    // Create a blob and download it
+    const blob = new Blob([JSON.stringify(sessionData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${sessionName}.novel.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleLoadSession = () => {
-    const sessions = JSON.parse(localStorage.getItem("saved_sessions") || "{}");
-    const sessionNames = Object.keys(sessions);
+    // Create a file input element
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".novel.json,.json";
 
-    if (sessionNames.length === 0) {
-      alert("No saved sessions found.");
-      return;
-    }
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
 
-    const sessionList = sessionNames.map((name, i) => `${i + 1}. ${name}`).join("\n");
-    const selection = prompt(`Choose a session to load:\n\n${sessionList}\n\nEnter the number:`);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const sessionData = JSON.parse(event.target?.result as string);
 
-    if (!selection) return;
+          // Load the session data
+          if (sessionData.content) {
+            editor.commands.setContent(sessionData.content);
+            localStorage.setItem("editor_content", sessionData.content);
+          }
 
-    const index = parseInt(selection, 10) - 1;
-    if (index < 0 || index >= sessionNames.length) {
-      alert("Invalid selection.");
-      return;
-    }
+          if (sessionData.scenario !== undefined) {
+            localStorage.setItem("story_scenario", sessionData.scenario);
+          }
 
-    const sessionName = sessionNames[index];
-    const session = sessions[sessionName];
+          if (sessionData.maxWords) {
+            handleMaxWordsChange(sessionData.maxWords);
+          }
 
-    editor.commands.setContent(session.content);
-    localStorage.setItem("editor_content", session.content);
-    localStorage.setItem("story_scenario", session.scenario);
-    alert(`Session "${sessionName}" loaded!`);
-    window.location.reload(); // Reload to update scenario
+          alert("Session loaded successfully!");
+          window.location.reload(); // Reload to update scenario
+        } catch (error) {
+          alert("Failed to load session file. Please check the file format.");
+          console.error(error);
+        }
+      };
+
+      reader.readAsText(file);
+    };
+
+    input.click();
   };
 
   return (

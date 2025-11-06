@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
 import Highlight from "@tiptap/extension-highlight";
 import { ScenarioData } from "@/components/Scenario/ScenarioPanel";
-import { Extension } from "@tiptap/core";
+import { Extension, Mark } from "@tiptap/core";
 
 // Custom extension for Tab indentation
 const IndentExtension = Extension.create({
@@ -23,15 +23,29 @@ const IndentExtension = Extension.create({
           const tr = state.tr;
           const pos = $from.before();
 
-          // Get current indent level
-          const currentIndent = node.attrs.indent || 0;
-          const newIndent = currentIndent + 1;
+          // Check if cursor is at the start of the paragraph
+          const cursorPosInNode = $from.pos - $from.start();
+          const isAtStart = cursorPosInNode === 0;
 
-          // Update node with new indent
-          tr.setNodeMarkup(pos, null, {
-            ...node.attrs,
-            indent: newIndent,
-          });
+          if (isAtStart) {
+            // Add first-line indent (text-indent)
+            const currentTextIndent = node.attrs.textIndent || 0;
+            const newTextIndent = currentTextIndent + 1;
+
+            tr.setNodeMarkup(pos, null, {
+              ...node.attrs,
+              textIndent: newTextIndent,
+            });
+          } else {
+            // Add whole-paragraph indent (margin-left)
+            const currentIndent = node.attrs.indent || 0;
+            const newIndent = currentIndent + 1;
+
+            tr.setNodeMarkup(pos, null, {
+              ...node.attrs,
+              indent: newIndent,
+            });
+          }
 
           dispatch(tr);
           return true;
@@ -48,15 +62,29 @@ const IndentExtension = Extension.create({
           const tr = state.tr;
           const pos = $from.before();
 
-          // Get current indent level
-          const currentIndent = node.attrs.indent || 0;
-          const newIndent = Math.max(0, currentIndent - 1);
+          // Check if cursor is at the start of the paragraph
+          const cursorPosInNode = $from.pos - $from.start();
+          const isAtStart = cursorPosInNode === 0;
 
-          // Update node with new indent
-          tr.setNodeMarkup(pos, null, {
-            ...node.attrs,
-            indent: newIndent,
-          });
+          if (isAtStart) {
+            // Remove first-line indent (text-indent)
+            const currentTextIndent = node.attrs.textIndent || 0;
+            const newTextIndent = Math.max(0, currentTextIndent - 1);
+
+            tr.setNodeMarkup(pos, null, {
+              ...node.attrs,
+              textIndent: newTextIndent,
+            });
+          } else {
+            // Remove whole-paragraph indent (margin-left)
+            const currentIndent = node.attrs.indent || 0;
+            const newIndent = Math.max(0, currentIndent - 1);
+
+            tr.setNodeMarkup(pos, null, {
+              ...node.attrs,
+              indent: newIndent,
+            });
+          }
 
           dispatch(tr);
           return true;
@@ -80,17 +108,69 @@ const IndentExtension = Extension.create({
               return match ? parseInt(match[1], 10) / 40 : 0;
             },
             renderHTML: (attributes) => {
-              if (!attributes.indent) {
+              if (!attributes.indent && !attributes.textIndent) {
                 return {};
               }
-              return {
-                style: `margin-left: ${attributes.indent * 40}px`,
-              };
+              let style = "";
+              if (attributes.indent) {
+                style += `margin-left: ${attributes.indent * 40}px; `;
+              }
+              if (attributes.textIndent) {
+                style += `text-indent: ${attributes.textIndent * 40}px;`;
+              }
+              return { style: style.trim() };
+            },
+          },
+          textIndent: {
+            default: 0,
+            parseHTML: (element) => {
+              const style = element.getAttribute("style") || "";
+              const match = style.match(/text-indent:\s*(\d+)px/);
+              return match ? parseInt(match[1], 10) / 40 : 0;
+            },
+            renderHTML: () => {
+              return {};
             },
           },
         },
       },
     ];
+  },
+});
+
+// Custom mark for inline footnotes (replaced [[instructions]])
+const FootnoteMark = Mark.create({
+  name: "footnote",
+
+  addAttributes() {
+    return {
+      instruction: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-instruction"),
+        renderHTML: (attributes) => {
+          if (!attributes.instruction) {
+            return {};
+          }
+          return {
+            "data-instruction": attributes.instruction,
+            class: "footnote-marker",
+            title: attributes.instruction,
+          };
+        },
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-instruction]',
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["span", HTMLAttributes, "†"];
   },
 });
 
@@ -103,6 +183,7 @@ export default function Editor({ scenario }: EditorProps) {
   const [maxWords, setMaxWords] = useState(150);
   const insertionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const generatingTextRef = useRef<string>("");
+  const [previousInstructions, setPreviousInstructions] = useState<string[]>([]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -112,6 +193,7 @@ export default function Editor({ scenario }: EditorProps) {
         multicolor: true,
       }),
       IndentExtension,
+      FootnoteMark,
     ],
     content: "<p>Start writing your story here...</p>",
     editorProps: {
@@ -157,6 +239,40 @@ export default function Editor({ scenario }: EditorProps) {
       }
     }
   }, [editor]);
+
+  // Extract [[instructions]] from text
+  const extractInstructions = (text: string): { cleanText: string; instructions: string[] } => {
+    const instructionPattern = /\[\[(.+?)\]\]/g;
+    const instructions: string[] = [];
+    let match;
+
+    while ((match = instructionPattern.exec(text)) !== null) {
+      instructions.push(match[1]);
+    }
+
+    const cleanText = text.replace(instructionPattern, '');
+    return { cleanText, instructions };
+  };
+
+  // Replace [[instructions]] in editor with footnote markers
+  const replaceInstructionsWithFootnotes = () => {
+    if (!editor) return;
+
+    const html = editor.getHTML();
+    const instructionPattern = /\[\[(.+?)\]\]/g;
+    let newHtml = html;
+    let match;
+
+    while ((match = instructionPattern.exec(html)) !== null) {
+      const instruction = match[1];
+      const footnoteHtml = `<span data-instruction="${instruction}" class="footnote-marker">†</span>`;
+      newHtml = newHtml.replace(match[0], footnoteHtml);
+    }
+
+    if (newHtml !== html) {
+      editor.commands.setContent(newHtml);
+    }
+  };
 
   // Progressive text insertion function - inserts at a fixed position
   const insertTextProgressively = async (text: string) => {
@@ -223,10 +339,16 @@ export default function Editor({ scenario }: EditorProps) {
       // Get current text content
       const currentText = editor.getText();
 
-      // Extract context (last 2000 characters)
-      const context = currentText.slice(-2000);
+      // Extract [[instructions]] from the current text
+      const { cleanText, instructions: newInstructions } = extractInstructions(currentText);
 
-      // Call our API route with scenario and maxWords
+      // Combine with previous instructions
+      const allInstructions = [...previousInstructions, ...newInstructions];
+
+      // Extract context (last 2000 characters of clean text)
+      const context = cleanText.slice(-2000);
+
+      // Call our API route with scenario, maxWords, and instructions
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
@@ -238,6 +360,7 @@ export default function Editor({ scenario }: EditorProps) {
           apiKey,
           model,
           maxWords,
+          instructions: allInstructions,
         }),
       });
 
@@ -247,6 +370,12 @@ export default function Editor({ scenario }: EditorProps) {
       }
 
       const data = await response.json();
+
+      // Replace [[instructions]] with footnote markers
+      replaceInstructionsWithFootnotes();
+
+      // Store the new instructions for next generation
+      setPreviousInstructions(allInstructions);
 
       // Append generated text progressively with highlight
       if (data.text) {
@@ -280,8 +409,8 @@ export default function Editor({ scenario }: EditorProps) {
         </div>
       </div>
 
-      {/* Floating Generate Panel - Bottom Left */}
-      <div className="fixed bottom-8 left-8 z-50 glass-panel" style={{
+      {/* Floating Generate Panel - Bottom Right */}
+      <div className="fixed bottom-8 right-8 z-50 glass-panel" style={{
         borderRadius: '16px',
         padding: '16px',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'

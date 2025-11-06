@@ -80,3 +80,46 @@ body {
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(126, 34, 206, 0.95));
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
+
+/* Footnote marker styles */
+.footnote-marker {
+  color: #3b82f6;
+  font-weight: bold;
+  cursor: help;
+  position: relative;
+  display: inline-block;
+  margin: 0 2px;
+  font-size: 0.9em;
+  vertical-align: super;
+}
+
+.footnote-marker:hover::after {
+  content: attr(data-instruction);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(17, 17, 17, 0.95);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  max-width: 300px;
+  font-size: 0.875rem;
+  font-weight: normal;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  margin-bottom: 5px;
+}
+
+.footnote-marker:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(17, 17, 17, 0.95);
+  z-index: 1000;
+}
