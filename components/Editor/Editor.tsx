@@ -822,6 +822,7 @@ export default function Editor({ scenario }: EditorProps) {
         isOpen={isDefinitionModalOpen}
         word={selectedWord}
         existingDefinition={definitions[selectedWord.toLowerCase().trim()] || ""}
+        context={editor?.getText() || ""}
         onClose={() => setIsDefinitionModalOpen(false)}
         onSave={handleSaveDefinition}
       />
