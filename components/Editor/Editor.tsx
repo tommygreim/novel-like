@@ -1,261 +1,225 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
+import { ContentEditable } from "@lexical/react/LexicalContentEditable";
+import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
+import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import {
+  $getRoot,
+  $getSelection,
+  $createParagraphNode,
+  $createTextNode,
+  EditorState,
+  LexicalEditor as LexicalEditorType,
+  COMMAND_PRIORITY_LOW,
+  KEY_TAB_COMMAND,
+  TextNode,
+  ElementNode,
+  $isParagraphNode,
+} from "lexical";
+import { $setBlocksType } from "@lexical/selection";
 import EditorToolbar from "./EditorToolbar";
 import { ScenarioData } from "@/components/Scenario/ScenarioPanel";
-import { Extension, Mark } from "@tiptap/core";
-import { TextStyle } from "@tiptap/extension-text-style";
-import { Color } from "@tiptap/extension-color";
 import DefinitionModal from "@/components/Definition/DefinitionModal";
-import { EmphasisExtension } from "./EmphasisExtension";
-
-// Custom extension for Tab indentation
-const IndentExtension = Extension.create({
-  name: "indent",
-
-  addKeyboardShortcuts() {
-    return {
-      Tab: () => {
-        const { state, dispatch } = this.editor.view;
-        const { $from } = state.selection;
-        const node = $from.node();
-
-        if (node.type.name === "paragraph") {
-          const tr = state.tr;
-          const pos = $from.before();
-
-          // Check if cursor is at the start of the paragraph
-          const cursorPosInNode = $from.pos - $from.start();
-          const isAtStart = cursorPosInNode === 0;
-
-          if (isAtStart) {
-            // Add first-line indent (text-indent)
-            const currentTextIndent = node.attrs.textIndent || 0;
-            const newTextIndent = currentTextIndent + 1;
-
-            tr.setNodeMarkup(pos, null, {
-              ...node.attrs,
-              textIndent: newTextIndent,
-            });
-          } else {
-            // Add whole-paragraph indent (margin-left)
-            const currentIndent = node.attrs.indent || 0;
-            const newIndent = currentIndent + 1;
-
-            tr.setNodeMarkup(pos, null, {
-              ...node.attrs,
-              indent: newIndent,
-            });
-          }
-
-          dispatch(tr);
-          return true;
-        }
-
-        return false;
-      },
-      "Shift-Tab": () => {
-        const { state, dispatch } = this.editor.view;
-        const { $from } = state.selection;
-        const node = $from.node();
-
-        if (node.type.name === "paragraph") {
-          const tr = state.tr;
-          const pos = $from.before();
-
-          // Check if cursor is at the start of the paragraph
-          const cursorPosInNode = $from.pos - $from.start();
-          const isAtStart = cursorPosInNode === 0;
-
-          if (isAtStart) {
-            // Remove first-line indent (text-indent)
-            const currentTextIndent = node.attrs.textIndent || 0;
-            const newTextIndent = Math.max(0, currentTextIndent - 1);
-
-            tr.setNodeMarkup(pos, null, {
-              ...node.attrs,
-              textIndent: newTextIndent,
-            });
-          } else {
-            // Remove whole-paragraph indent (margin-left)
-            const currentIndent = node.attrs.indent || 0;
-            const newIndent = Math.max(0, currentIndent - 1);
-
-            tr.setNodeMarkup(pos, null, {
-              ...node.attrs,
-              indent: newIndent,
-            });
-          }
-
-          dispatch(tr);
-          return true;
-        }
-
-        return false;
-      },
-    };
-  },
-
-  addGlobalAttributes() {
-    return [
-      {
-        types: ["paragraph"],
-        attributes: {
-          indent: {
-            default: 0,
-            parseHTML: (element) => {
-              const style = element.getAttribute("style") || "";
-              const match = style.match(/margin-left:\s*(\d+)px/);
-              return match ? parseInt(match[1], 10) / 40 : 0;
-            },
-            renderHTML: (attributes) => {
-              if (!attributes.indent && !attributes.textIndent) {
-                return {};
-              }
-              let style = "";
-              if (attributes.indent) {
-                style += `margin-left: ${attributes.indent * 40}px; `;
-              }
-              if (attributes.textIndent) {
-                style += `text-indent: ${attributes.textIndent * 40}px;`;
-              }
-              return { style: style.trim() };
-            },
-          },
-          textIndent: {
-            default: 0,
-            parseHTML: (element) => {
-              const style = element.getAttribute("style") || "";
-              const match = style.match(/text-indent:\s*(\d+)px/);
-              return match ? parseInt(match[1], 10) / 40 : 0;
-            },
-            renderHTML: () => {
-              return {};
-            },
-          },
-        },
-      },
-    ];
-  },
-});
-
-// Custom mark for inline footnotes (replaced [[instructions]])
-const FootnoteMark = Mark.create({
-  name: "footnote",
-
-  addAttributes() {
-    return {
-      instruction: {
-        default: null,
-        parseHTML: (element) => element.getAttribute("data-instruction"),
-        renderHTML: (attributes) => {
-          if (!attributes.instruction) {
-            return {};
-          }
-          return {
-            "data-instruction": attributes.instruction,
-            class: "footnote-marker",
-            title: attributes.instruction,
-          };
-        },
-      },
-    };
-  },
-
-  parseHTML() {
-    return [
-      {
-        tag: 'span[data-instruction]',
-      },
-    ];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["span", HTMLAttributes, "†"];
-  },
-});
 
 interface EditorProps {
   scenario: ScenarioData | null;
 }
 
+// Plugin to handle tab indentation
+function TabIndentPlugin() {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_TAB_COMMAND,
+      (event) => {
+        event.preventDefault();
+
+        editor.update(() => {
+          const selection = $getSelection();
+          if (selection) {
+            // Add tab character for now - we'll enhance this
+            const tabText = $createTextNode('\t');
+            selection.insertNodes([tabText]);
+          }
+        });
+
+        return true;
+      },
+      COMMAND_PRIORITY_LOW
+    );
+  }, [editor]);
+
+  return null;
+}
+
+// Plugin to auto-save content
+function AutoSavePlugin({ onSave }: { onSave: (content: string) => void }) {
+  const [editor] = useLexicalComposerContext();
+
+  const handleChange = (editorState: EditorState) => {
+    editorState.read(() => {
+      const root = $getRoot();
+      const text = root.getTextContent();
+      onSave(text);
+    });
+  };
+
+  return <OnChangePlugin onChange={handleChange} />;
+}
+
+// Plugin to apply emphasis words effect
+function EmphasisWordsPlugin({ words }: { words: string[] }) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (words.length === 0) return;
+
+    const applyEmphasis = () => {
+      const editorElement = editor.getRootElement();
+      if (!editorElement) return;
+
+      // Find all text nodes
+      const walker = document.createTreeWalker(
+        editorElement,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      const textNodes: Text[] = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        textNodes.push(node as Text);
+      }
+
+      textNodes.forEach((textNode) => {
+        const text = textNode.textContent || "";
+        const wordRegex = /\b[\w']+\b/g;
+        let match;
+        const replacements: { start: number; end: number; word: string }[] = [];
+
+        while ((match = wordRegex.exec(text)) !== null) {
+          const word = match[0];
+          if (words.includes(word.toLowerCase())) {
+            replacements.push({
+              start: match.index,
+              end: match.index + word.length,
+              word: word,
+            });
+          }
+        }
+
+        if (replacements.length > 0 && textNode.parentElement) {
+          // Build replacement fragment
+          const fragment = document.createDocumentFragment();
+          let lastIndex = 0;
+
+          replacements.forEach(({ start, end, word }) => {
+            // Add text before the word
+            if (start > lastIndex) {
+              fragment.appendChild(
+                document.createTextNode(text.substring(lastIndex, start))
+              );
+            }
+
+            // Add the emphasized word
+            const wordSpan = document.createElement("span");
+            wordSpan.className = "emphasis-word";
+
+            for (let i = 0; i < word.length; i++) {
+              const charSpan = document.createElement("span");
+              charSpan.className = "emphasis-char";
+              charSpan.textContent = word[i];
+              wordSpan.appendChild(charSpan);
+            }
+
+            fragment.appendChild(wordSpan);
+            lastIndex = end;
+          });
+
+          // Add remaining text
+          if (lastIndex < text.length) {
+            fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+          }
+
+          // Replace the text node
+          textNode.parentElement.replaceChild(fragment, textNode);
+        }
+      });
+    };
+
+    // Apply emphasis on initial render and after updates
+    const timeoutId = setTimeout(applyEmphasis, 100);
+
+    // Set up mutation observer
+    const editorElement = editor.getRootElement();
+    if (editorElement) {
+      const observer = new MutationObserver(() => {
+        // Remove old emphasis spans first
+        editorElement.querySelectorAll(".emphasis-word").forEach((span) => {
+          const text = span.textContent || "";
+          const textNode = document.createTextNode(text);
+          span.parentNode?.replaceChild(textNode, span);
+        });
+
+        // Reapply emphasis
+        setTimeout(applyEmphasis, 50);
+      });
+
+      observer.observe(editorElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+
+      return () => {
+        clearTimeout(timeoutId);
+        observer.disconnect();
+      };
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [editor, words]);
+
+  return null;
+}
+
 export default function Editor({ scenario }: EditorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [maxWords, setMaxWords] = useState(150);
-  const insertionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const generatingTextRef = useRef<string>("");
   const [previousInstructions, setPreviousInstructions] = useState<string[]>([]);
   const [emphasisWords, setEmphasisWords] = useState<string[]>([]);
-  const [updateTrigger, setUpdateTrigger] = useState(0);
-
-  // Definition state
   const [definitions, setDefinitions] = useState<Record<string, string>>({});
   const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
   const [selectedWord, setSelectedWord] = useState("");
   const [showDefineButton, setShowDefineButton] = useState(false);
   const [defineButtonPosition, setDefineButtonPosition] = useState({ x: 0, y: 0 });
+  const editorRef = useRef<LexicalEditorType | null>(null);
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit,
-      TextStyle,
-      Color,
-      IndentExtension,
-      FootnoteMark,
-      EmphasisExtension.configure({
-        emphasisWords: [],
-      }),
-    ],
-    content: "<p>Start writing your story here...</p>",
-    editorProps: {
-      attributes: {
-        class: "prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none min-h-[500px]",
+  // Initial editor configuration
+  const initialConfig = {
+    namespace: "NovelEditor",
+    theme: {
+      paragraph: "editor-paragraph",
+      text: {
+        bold: "editor-text-bold",
+        italic: "editor-text-italic",
+        underline: "editor-text-underline",
       },
     },
-    onUpdate: ({ editor }) => {
-      // Save content to localStorage
-      if (editor) {
-        localStorage.setItem("editor_content", editor.getHTML());
-      }
-
-      // Remove generated-text class when user edits
-      // This removes the lavender color and animation from edited words
-      const editorElement = editor.view.dom;
-      const { from } = editor.state.selection;
-
-      // Find the node at cursor position and check if it has generated-text class
-      const domAtPos = editor.view.domAtPos(from);
-      let node: Node | null = domAtPos.node;
-
-      // Traverse up to find a span with generated-text class
-      while (node && node !== editorElement) {
-        if (node instanceof HTMLElement && node.classList.contains('generated-text')) {
-          node.classList.remove('generated-text');
-          node.style.color = '';
-          node.style.textShadow = '';
-          node.style.animation = '';
-          break;
-        }
-        node = node.parentNode;
-      }
-
-      // Trigger character wrapping for emphasis words
-      setUpdateTrigger(prev => prev + 1);
+    onError: (error: Error) => {
+      console.error("Lexical error:", error);
     },
-  });
+  };
 
-  // Load saved content on mount
+  // Load settings on mount
   useEffect(() => {
-    if (editor && typeof window !== "undefined") {
-      const savedContent = localStorage.getItem("editor_content");
-      if (savedContent) {
-        editor.commands.setContent(savedContent);
-      }
-
-      // Load max words setting
+    if (typeof window !== "undefined") {
+      // Load max words
       const savedMaxWords = localStorage.getItem("max_words");
       if (savedMaxWords) {
         setMaxWords(parseInt(savedMaxWords, 10));
@@ -265,8 +229,8 @@ export default function Editor({ scenario }: EditorProps) {
       const savedEmphasisWords = localStorage.getItem("emphasis_words") || "";
       const wordsArray = savedEmphasisWords
         .split(",")
-        .map(w => w.trim().toLowerCase())
-        .filter(w => w.length > 0);
+        .map((w) => w.trim().toLowerCase())
+        .filter((w) => w.length > 0);
       setEmphasisWords(wordsArray);
 
       // Load definitions
@@ -278,276 +242,16 @@ export default function Editor({ scenario }: EditorProps) {
           console.error("Failed to parse definitions:", e);
         }
       }
-
-      // Trigger emphasis effect after loading
-      setTimeout(() => {
-        setUpdateTrigger(prev => prev + 1);
-      }, 200);
     }
-  }, [editor]);
+  }, []);
 
-  // Update emphasis extension options when emphasis words change
-  useEffect(() => {
-    if (editor && emphasisWords.length >= 0) {
-      editor.extensionManager.extensions.forEach((ext) => {
-        if (ext.name === 'emphasis') {
-          ext.options.emphasisWords = emphasisWords;
-        }
-      });
-      // Force update by triggering a no-op transaction
-      editor.view.dispatch(editor.state.tr);
-    }
-  }, [editor, emphasisWords]);
-
-  // Wrap characters in emphasis-word spans for animation
-  const wrapEmphasisCharacters = () => {
-    if (!editor) return;
-
-    const editorElement = editor.view.dom;
-
-    // Find all emphasis-word spans that haven't been processed
-    const emphasisSpans = editorElement.querySelectorAll('.emphasis-word:not([data-processed])');
-
-    emphasisSpans.forEach((span) => {
-      const text = span.textContent || '';
-
-      // Clear the span content
-      span.innerHTML = '';
-
-      // Wrap each character in a span
-      for (let i = 0; i < text.length; i++) {
-        const charSpan = document.createElement('span');
-        charSpan.className = 'emphasis-char';
-        charSpan.textContent = text[i];
-        span.appendChild(charSpan);
-      }
-
-      // Mark as processed
-      (span as HTMLElement).setAttribute('data-processed', 'true');
-    });
-  };
-
-  // Apply underline styling to defined words
-  const applyDefinitionUnderlines = () => {
-    if (!editor || Object.keys(definitions).length === 0) return;
-
-    const editorElement = editor.view.dom;
-
-    // Remove all previous definition wrapping
-    editorElement.querySelectorAll('.defined-word').forEach((el) => {
-      const text = el.textContent || '';
-      const textNode = document.createTextNode(text);
-      if (el.parentNode) {
-        el.parentNode.replaceChild(textNode, el);
-      }
-    });
-
-    // Process all paragraph elements
-    const paragraphs = editorElement.querySelectorAll('p');
-    const definedWords = Object.keys(definitions);
-
-    paragraphs.forEach((paragraph) => {
-      // Get all text nodes in this paragraph
-      const walker = document.createTreeWalker(
-        paragraph,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-
-      const textNodes: Text[] = [];
-      let node: Node | null;
-      while ((node = walker.nextNode())) {
-        textNodes.push(node as Text);
-      }
-
-      // Process each text node
-      textNodes.forEach((textNode) => {
-        const text = textNode.textContent || '';
-        const words = text.split(/(\s+)/);
-
-        // Check if any words have definitions
-        const hasDefinedWord = words.some(word =>
-          definedWords.includes(word.toLowerCase().trim())
-        );
-
-        if (!hasDefinedWord) return;
-
-        // Build replacement fragment
-        const fragment = document.createDocumentFragment();
-
-        words.forEach((word) => {
-          const cleanWord = word.toLowerCase().trim();
-
-          if (cleanWord && definedWords.includes(cleanWord)) {
-            // Create wrapper for the defined word
-            const wordSpan = document.createElement('span');
-            wordSpan.className = 'defined-word';
-            wordSpan.textContent = word;
-            wordSpan.style.textDecoration = 'underline';
-            wordSpan.style.textDecorationColor = 'rgb(59, 130, 246)';
-            wordSpan.style.textUnderlineOffset = '2px';
-            wordSpan.style.cursor = 'pointer';
-            wordSpan.onclick = (e) => {
-              e.stopPropagation();
-              handleDefinedWordClick(word);
-            };
-
-            fragment.appendChild(wordSpan);
-          } else {
-            // Regular text
-            fragment.appendChild(document.createTextNode(word));
-          }
-        });
-
-        // Replace text node with fragment
-        if (textNode.parentNode) {
-          textNode.parentNode.replaceChild(fragment, textNode);
-        }
-      });
-    });
-  };
-
-  // Watch for emphasis-word spans and wrap their characters
-  useEffect(() => {
-    if (!editor) return;
-
-    const editorElement = editor.view.dom;
-
-    // Initial wrapping
-    const initialTimeout = setTimeout(() => {
-      wrapEmphasisCharacters();
-    }, 50);
-
-    // Set up MutationObserver to watch for new emphasis-word spans
-    const observer = new MutationObserver(() => {
-      wrapEmphasisCharacters();
-    });
-
-    observer.observe(editorElement, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-
-    return () => {
-      clearTimeout(initialTimeout);
-      observer.disconnect();
-    };
-  }, [editor, updateTrigger, emphasisWords]);
-
-  // Apply definition underlines when editor content changes or definitions change
-  useEffect(() => {
-    if (editor && Object.keys(definitions).length > 0) {
-      const timeoutId = setTimeout(() => {
-        applyDefinitionUnderlines();
-      }, 100); // Small delay to let DOM settle
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [updateTrigger, definitions, editor]);
-
-  // Listen for text selection changes
-  useEffect(() => {
-    if (!editor) return;
-
-    const handleUpdate = () => {
-      handleSelectionChange();
-    };
-
-    editor.on("selectionUpdate", handleUpdate);
-
-    return () => {
-      editor.off("selectionUpdate", handleUpdate);
-    };
-  }, [editor, definitions]);
-
-  // Extract [[instructions]] from text
-  const extractInstructions = (text: string): { cleanText: string; instructions: string[] } => {
-    const instructionPattern = /\[\[(.+?)\]\]/g;
-    const instructions: string[] = [];
-    let match;
-
-    while ((match = instructionPattern.exec(text)) !== null) {
-      instructions.push(match[1]);
-    }
-
-    const cleanText = text.replace(instructionPattern, '');
-    return { cleanText, instructions };
-  };
-
-  // Replace [[instructions]] in editor with footnote markers
-  const replaceInstructionsWithFootnotes = () => {
-    if (!editor) return;
-
-    const html = editor.getHTML();
-    const instructionPattern = /\[\[(.+?)\]\]/g;
-    let newHtml = html;
-    let match;
-
-    while ((match = instructionPattern.exec(html)) !== null) {
-      const instruction = match[1];
-      const footnoteHtml = `<span data-instruction="${instruction}" class="footnote-marker">†</span>`;
-      newHtml = newHtml.replace(match[0], footnoteHtml);
-    }
-
-    if (newHtml !== html) {
-      editor.commands.setContent(newHtml);
-    }
-  };
-
-  // Insert text with lavender color
-  const insertTextProgressively = async (text: string) => {
-    if (!editor) return;
-
-    // Store the text being generated
-    generatingTextRef.current = text;
-
-    // Clear lavender color from previous generation
-    const doc = editor.state.doc;
-    const tr = editor.state.tr;
-    let cleared = false;
-
-    doc.descendants((node, pos) => {
-      if (node.isText && node.marks) {
-        node.marks.forEach((mark) => {
-          if (mark.type.name === "textStyle" && mark.attrs.color === "#e0b0ff") {
-            tr.removeMark(pos, pos + node.nodeSize, mark);
-            cleared = true;
-          }
-        });
-      }
-    });
-
-    if (cleared) {
-      editor.view.dispatch(tr);
-    }
-
-    // Move cursor to the very end of the document
-    editor.commands.focus("end");
-
-    // Check if we need to add a space before the new text
-    const currentText = editor.getText();
-    const needsSpace = currentText.length > 0 && !/\s$/.test(currentText);
-
-    // If we need a space, add it first (without color)
-    if (needsSpace) {
-      editor.commands.insertContent(" ");
-    }
-
-    // Insert text with lavender color
-    editor.chain().focus().setColor("#e0b0ff").insertContent(text).run();
-
-    // Clear color mark so future typing is normal
-    editor.commands.unsetColor();
-    editor.commands.focus("end");
-
-    generatingTextRef.current = "";
+  const handleSave = (content: string) => {
+    localStorage.setItem("editor_content", content);
   };
 
   const handleGenerate = async () => {
-    if (!editor) return;
+    if (!editorRef.current) return;
 
-    // Get API key and model from localStorage
     const apiKey = localStorage.getItem("openrouter_api_key");
     const model = localStorage.getItem("openrouter_model") || "openai/gpt-3.5-turbo";
 
@@ -559,36 +263,41 @@ export default function Editor({ scenario }: EditorProps) {
     setIsGenerating(true);
 
     try {
-      // Get current text content
-      const currentText = editor.getText();
+      let currentText = "";
+      editorRef.current.getEditorState().read(() => {
+        const root = $getRoot();
+        currentText = root.getTextContent();
+      });
 
-      // Extract [[instructions]] from the current text
-      const { cleanText, instructions: newInstructions } = extractInstructions(currentText);
+      // Extract [[instructions]]
+      const instructionPattern = /\[\[(.+?)\]\]/g;
+      const instructions: string[] = [];
+      let match;
+      while ((match = instructionPattern.exec(currentText)) !== null) {
+        instructions.push(match[1]);
+      }
+      const cleanText = currentText.replace(instructionPattern, "");
+      const allInstructions = [...previousInstructions, ...instructions];
 
-      // Combine with previous instructions
-      const allInstructions = [...previousInstructions, ...newInstructions];
+      // Extract context
+      const context = cleanText.slice(-2000);
 
-      // Extract context (all character)
-      const context = cleanText;
-
-      // Extract definitions for words in last 300 words
+      // Extract definitions from last 300 words
       const words = cleanText.split(/\s+/).filter(Boolean);
       const last300Words = words.slice(-300);
       const relevantDefinitions: Record<string, string> = {};
 
       last300Words.forEach((word) => {
-        const cleanWord = word.toLowerCase().trim().replace(/[.,!?;:()'"]/g, '');
+        const cleanWord = word.toLowerCase().trim().replace(/[.,!?;:()'"]/g, "");
         if (definitions[cleanWord]) {
           relevantDefinitions[cleanWord] = definitions[cleanWord];
         }
       });
 
-      // Call our API route with scenario, maxWords, instructions, and definitions
+      // Call API
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           context,
           scenario,
@@ -607,15 +316,25 @@ export default function Editor({ scenario }: EditorProps) {
 
       const data = await response.json();
 
-      // Replace [[instructions]] with footnote markers
-      replaceInstructionsWithFootnotes();
-
-      // Store the new instructions for next generation
-      setPreviousInstructions(allInstructions);
-
-      // Append generated text progressively with highlight
       if (data.text) {
-        await insertTextProgressively(data.text);
+        // Insert generated text
+        editorRef.current.update(() => {
+          const root = $getRoot();
+          const lastChild = root.getLastChild();
+
+          if (lastChild && $isParagraphNode(lastChild)) {
+            const textNode = $createTextNode(" " + data.text);
+            lastChild.append(textNode);
+          } else {
+            // Create new paragraph if none exists
+            const paragraph = $createParagraphNode();
+            const textNode = $createTextNode(data.text);
+            paragraph.append(textNode);
+            root.append(paragraph);
+          }
+        });
+
+        setPreviousInstructions(allInstructions);
       }
     } catch (error) {
       console.error("Generation error:", error);
@@ -625,97 +344,99 @@ export default function Editor({ scenario }: EditorProps) {
     }
   };
 
-  // Handle text selection for defining words
-  const handleSelectionChange = () => {
-    if (!editor) return;
-
-    const { state } = editor;
-    const { from, to } = state.selection;
-    const text = state.doc.textBetween(from, to, " ").trim();
-
-    // Only show Define button if we have a single word selected
-    if (text && text.split(/\s+/).length === 1) {
-      setSelectedWord(text);
-      setShowDefineButton(true);
-
-      // Get the selection position to position the button
-      const { view } = editor;
-      const start = view.coordsAtPos(from);
-      setDefineButtonPosition({ x: start.left, y: start.top - 40 });
-    } else {
-      setShowDefineButton(false);
-    }
-  };
-
-  // Open definition modal
-  const handleOpenDefineModal = () => {
-    setShowDefineButton(false);
-    setIsDefinitionModalOpen(true);
-  };
-
-  // Save definition
   const handleSaveDefinition = (word: string, definition: string) => {
     const normalizedWord = word.toLowerCase().trim();
-
     const newDefinitions = { ...definitions };
 
     if (definition) {
-      // Add or update definition
       newDefinitions[normalizedWord] = definition;
     } else {
-      // Delete definition
       delete newDefinitions[normalizedWord];
     }
 
     setDefinitions(newDefinitions);
     localStorage.setItem("word_definitions", JSON.stringify(newDefinitions));
-
-    // Trigger update to refresh underlines
-    setUpdateTrigger(prev => prev + 1);
-  };
-
-  // Handle clicking on a defined word
-  const handleDefinedWordClick = (word: string) => {
-    const normalizedWord = word.toLowerCase().trim();
-    setSelectedWord(word);
-    setIsDefinitionModalOpen(true);
   };
 
   return (
-    <div className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]" style={{
-      background: 'linear-gradient(135deg, rgba(249, 250, 251, 1) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)'
-    }}>
-      {/* Page-width centered editor with liquid glass effect */}
-      <div className="max-w-[8.5in] mx-auto glass-panel" style={{
-        borderRadius: '24px',
-        overflow: 'hidden',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)'
-      }}>
+    <div
+      className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]"
+      style={{
+        background:
+          "linear-gradient(135deg, rgba(249, 250, 251, 1) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)",
+      }}
+    >
+      <div
+        className="max-w-[8.5in] mx-auto glass-panel"
+        style={{
+          borderRadius: "24px",
+          overflow: "hidden",
+          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.1)",
+        }}
+      >
         <EditorToolbar
-          editor={editor}
+          editor={null}
           maxWords={maxWords}
           onMaxWordsChange={setMaxWords}
         />
-        <div className="px-16 py-12" style={{ minHeight: '11in' }}>
-          <EditorContent editor={editor} />
+
+        <div className="px-16 py-12" style={{ minHeight: "11in" }}>
+          <LexicalComposer initialConfig={initialConfig}>
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable
+                  className="editor-content-editable"
+                  style={{
+                    outline: "none",
+                    minHeight: "500px",
+                    lineHeight: "1.6",
+                    fontSize: "16px",
+                  }}
+                />
+              }
+              placeholder={
+                <div
+                  className="editor-placeholder"
+                  style={{
+                    position: "absolute",
+                    top: "0",
+                    left: "0",
+                    color: "#999",
+                    pointerEvents: "none",
+                  }}
+                >
+                  Start writing your story here...
+                </div>
+              }
+              ErrorBoundary={(props: any) => <div className="error-boundary">{props.children}</div>}
+            />
+            <HistoryPlugin />
+            <TabIndentPlugin />
+            <AutoSavePlugin onSave={handleSave} />
+            <EmphasisWordsPlugin words={emphasisWords} />
+            <EditorRefPlugin editorRef={editorRef} />
+          </LexicalComposer>
         </div>
       </div>
 
-      {/* Floating Generate Panel - Bottom Right */}
-      <div className="fixed bottom-8 right-8 z-50 glass-panel" style={{
-        borderRadius: '16px',
-        padding: '16px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
-      }}>
+      {/* Floating Generate Panel */}
+      <div
+        className="fixed bottom-8 right-8 z-50 glass-panel"
+        style={{
+          borderRadius: "16px",
+          padding: "16px",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
+        }}
+      >
         <button
           onClick={handleGenerate}
           disabled={isGenerating}
           className="px-6 py-3 text-sm font-medium transition-all duration-200 glass-button"
           style={{
-            borderRadius: '12px',
-            color: 'white',
+            borderRadius: "12px",
+            color: "white",
             opacity: isGenerating ? 0.7 : 1,
-            minWidth: '140px'
+            minWidth: "140px",
           }}
         >
           {isGenerating ? (
@@ -744,33 +465,26 @@ export default function Editor({ scenario }: EditorProps) {
         </button>
       </div>
 
-      {/* Define Button - appears on text selection */}
-      {showDefineButton && (
-        <button
-          onClick={handleOpenDefineModal}
-          className="fixed z-50 px-3 py-1.5 text-xs font-medium transition-all duration-200"
-          style={{
-            left: `${defineButtonPosition.x}px`,
-            top: `${defineButtonPosition.y}px`,
-            background: 'linear-gradient(135deg, rgb(37, 99, 235), rgb(126, 34, 206))',
-            borderRadius: '8px',
-            color: 'white',
-            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
-          }}
-        >
-          Define
-        </button>
-      )}
-
       {/* Definition Modal */}
       <DefinitionModal
         isOpen={isDefinitionModalOpen}
         word={selectedWord}
         existingDefinition={definitions[selectedWord.toLowerCase().trim()] || ""}
-        context={editor?.getText() || ""}
+        context={""} // We'll get this from editor
         onClose={() => setIsDefinitionModalOpen(false)}
         onSave={handleSaveDefinition}
       />
     </div>
   );
+}
+
+// Plugin to get editor reference
+function EditorRefPlugin({ editorRef }: { editorRef: React.MutableRefObject<LexicalEditorType | null> }) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor, editorRef]);
+
+  return null;
 }
