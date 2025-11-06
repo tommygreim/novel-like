@@ -4,9 +4,10 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useState, useRef, useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
-import Highlight from "@tiptap/extension-highlight";
 import { ScenarioData } from "@/components/Scenario/ScenarioPanel";
 import { Extension, Mark } from "@tiptap/core";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
 
 // Custom extension for Tab indentation
 const IndentExtension = Extension.create({
@@ -189,9 +190,8 @@ export default function Editor({ scenario }: EditorProps) {
     immediatelyRender: false,
     extensions: [
       StarterKit,
-      Highlight.configure({
-        multicolor: true,
-      }),
+      TextStyle,
+      Color,
       IndentExtension,
       FootnoteMark,
     ],
@@ -207,19 +207,21 @@ export default function Editor({ scenario }: EditorProps) {
         localStorage.setItem("editor_content", editor.getHTML());
       }
 
-      // Remove highlight from any text when user edits
+      // Remove lavender color from text when user edits
       const { from, to } = editor.state.selection;
       if (from !== to) {
-        // Selection is active, don't remove highlights yet
+        // Selection is active, don't remove colors yet
         return;
       }
 
-      // Check if we're typing in a highlighted area
+      // Check if we're typing in a lavender-colored area
       const marks = editor.state.storedMarks || editor.state.selection.$from.marks();
-      const hasHighlight = marks.some((mark) => mark.type.name === "highlight");
+      const hasLavenderColor = marks.some(
+        (mark) => mark.type.name === "textStyle" && mark.attrs.color === "#e0b0ff"
+      );
 
-      if (hasHighlight) {
-        editor.commands.unsetHighlight();
+      if (hasLavenderColor) {
+        editor.commands.unsetColor();
       }
     },
   });
@@ -274,31 +276,58 @@ export default function Editor({ scenario }: EditorProps) {
     }
   };
 
-  // Progressive text insertion function - inserts at a fixed position
+  // Progressive text insertion function - inserts at cursor with lavender color
   const insertTextProgressively = async (text: string) => {
     if (!editor) return;
 
     // Store the text being generated
     generatingTextRef.current = text;
 
-    // Clear any previous highlights
-    editor.commands.unsetHighlight();
+    // Clear all existing lavender-colored text by removing the color
+    const doc = editor.state.doc;
+    const tr = editor.state.tr;
+    let cleared = false;
 
-    // Get the end position before starting insertion
-    // Use doc.nodeSize - 2 to get the position right before the closing doc tag
-    const startPos = editor.state.doc.nodeSize - 2;
+    doc.descendants((node, pos) => {
+      if (node.isText && node.marks) {
+        node.marks.forEach((mark) => {
+          if (mark.type.name === "textStyle" && mark.attrs.color === "#e0b0ff") {
+            tr.removeMark(pos, pos + node.nodeSize, mark);
+            cleared = true;
+          }
+        });
+      }
+    });
+
+    if (cleared) {
+      editor.view.dispatch(tr);
+    }
+
+    // Move cursor to the very end of the document
+    editor.commands.focus("end");
+
+    // Check if we need to add a space before the new text
+    const currentText = editor.getText();
+    const needsSpace = currentText.length > 0 && !/\s$/.test(currentText);
+
+    // If we need a space, add it first (without color)
+    if (needsSpace) {
+      editor.commands.insertContent(" ");
+    }
 
     // Split text into words for progressive insertion
     const words = text.split(/(\s+)/); // Keep whitespace
-    let insertedLength = 0;
 
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
 
-      // Insert word at the calculated position (not at cursor)
-      const insertPosition = startPos + insertedLength;
-      editor.commands.insertContentAt(insertPosition, word);
-      insertedLength += word.length;
+      // Insert word with lavender color at cursor position
+      editor
+        .chain()
+        .focus()
+        .setColor("#e0b0ff") // Lavender color
+        .insertContent(word)
+        .run();
 
       // Add small delay between words (adjust for speed)
       await new Promise((resolve) => {
@@ -306,15 +335,9 @@ export default function Editor({ scenario }: EditorProps) {
       });
     }
 
-    // After all text is inserted, highlight it
-    const endPos = startPos + text.length;
-
-    editor
-      .chain()
-      .setTextSelection({ from: startPos, to: endPos })
-      .setHighlight({ color: "#d4f4dd" }) // dimmer green
-      .setTextSelection({ from: endPos, to: endPos }) // Move cursor to end
-      .run();
+    // Clear the color mark so future typing is normal
+    editor.commands.unsetColor();
+    editor.commands.focus("end");
 
     generatingTextRef.current = "";
   };
