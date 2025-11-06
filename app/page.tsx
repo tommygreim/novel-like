@@ -13,36 +13,62 @@ export default function Home() {
   const [scenario, setScenario] = useState<ScenarioData | null>(null);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30 dark:from-gray-950 dark:via-blue-950/20 dark:to-purple-950/20">
+    <main className="min-h-screen" style={{
+      background: 'linear-gradient(135deg, rgb(249, 250, 251) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)'
+    }}>
       <div className="max-w-7xl mx-auto">
         {/* Floating Header */}
         <header className="px-6 py-6">
-          <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/30 px-8 py-4">
+          <div className="glass-panel" style={{
+            borderRadius: '24px',
+            padding: '16px 32px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)'
+          }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-8">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold" style={{
+                  background: 'linear-gradient(135deg, rgb(37, 99, 235), rgb(126, 34, 206))',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>
                   Novel-Like
                 </h1>
 
                 {/* Tab Navigation */}
-                <div className="flex gap-2 bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-1">
+                <div className="flex gap-2 p-1" style={{
+                  background: 'rgba(243, 244, 246, 0.6)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  borderRadius: '12px'
+                }}>
                   <button
                     onClick={() => setActiveTab("editor")}
-                    className={`px-6 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      activeTab === "editor"
-                        ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-md"
-                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                    }`}
+                    className="px-6 py-2 text-sm font-medium transition-all duration-200"
+                    style={activeTab === "editor" ? {
+                      background: 'white',
+                      color: 'rgb(37, 99, 235)',
+                      borderRadius: '10px',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                    } : {
+                      color: 'rgb(75, 85, 99)',
+                      borderRadius: '10px'
+                    }}
                   >
                     Editor
                   </button>
                   <button
                     onClick={() => setActiveTab("scenario")}
-                    className={`px-6 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      activeTab === "scenario"
-                        ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-md"
-                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                    }`}
+                    className="px-6 py-2 text-sm font-medium transition-all duration-200"
+                    style={activeTab === "scenario" ? {
+                      background: 'white',
+                      color: 'rgb(37, 99, 235)',
+                      borderRadius: '10px',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                    } : {
+                      color: 'rgb(75, 85, 99)',
+                      borderRadius: '10px'
+                    }}
                   >
                     Scenario
                   </button>
@@ -51,7 +77,16 @@ export default function Home() {
 
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 rounded-xl transition-all duration-200 shadow-sm border border-gray-200/50 dark:border-gray-700/50"
+                className="px-5 py-2.5 text-sm font-medium transition-all duration-200"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.8)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(209, 213, 219, 0.5)',
+                  borderRadius: '12px',
+                  color: 'rgb(55, 65, 81)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+                }}
               >
                 Settings
               </button>

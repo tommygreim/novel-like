@@ -62,7 +62,8 @@ export default function ModelSelector({
     <div>
       <label
         htmlFor="model"
-        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        className="block text-sm font-medium mb-2"
+        style={{ color: 'rgb(55, 65, 81)' }}
       >
         Model
       </label>
@@ -70,7 +71,15 @@ export default function ModelSelector({
         id="model"
         value={selectedModel}
         onChange={(e) => onModelChange(e.target.value)}
-        className="w-full px-4 py-2.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-900 dark:text-gray-100 transition-all duration-200"
+        className="w-full px-4 py-2.5 transition-all duration-200 focus:outline-none focus:ring-2"
+        style={{
+          background: 'rgba(255, 255, 255, 0.5)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(209, 213, 219, 0.5)',
+          borderRadius: '12px',
+          color: 'rgb(17, 24, 39)'
+        }}
       >
         {AVAILABLE_MODELS.map((model) => (
           <option key={model.id} value={model.id}>
@@ -78,13 +87,14 @@ export default function ModelSelector({
           </option>
         ))}
       </select>
-      <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+      <p className="mt-2 text-xs" style={{ color: 'rgb(107, 114, 128)' }}>
         Different models have different costs and capabilities. Check{" "}
         <a
           href="https://openrouter.ai/docs#models"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          className="hover:underline font-medium"
+          style={{ color: 'rgb(37, 99, 235)' }}
         >
           OpenRouter docs
         </a>{" "}

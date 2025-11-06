@@ -16,17 +16,33 @@ export default function EditorToolbar({
   if (!editor) return null;
 
   return (
-    <div className="border-b border-gray-200/50 dark:border-gray-700/50 bg-gradient-to-r from-white/40 to-gray-50/40 dark:from-gray-800/40 dark:to-gray-900/40 backdrop-blur-sm px-8 py-4 flex items-center gap-3">
+    <div className="flex items-center gap-3 px-8 py-4" style={{
+      borderBottom: '1px solid rgba(229, 231, 235, 0.5)',
+      background: 'linear-gradient(to right, rgba(255, 255, 255, 0.4), rgba(249, 250, 251, 0.4))',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)'
+    }}>
       {/* Basic formatting buttons */}
-      <div className="flex gap-2 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg p-1 border border-gray-200/30 dark:border-gray-700/30">
+      <div className="flex gap-2 p-1" style={{
+        background: 'rgba(255, 255, 255, 0.5)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        borderRadius: '10px',
+        border: '1px solid rgba(229, 231, 235, 0.3)'
+      }}>
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
           disabled={!editor.can().chain().focus().toggleBold().run()}
-          className={`px-3 py-1.5 text-sm font-bold rounded-md transition-all duration-200 ${
-            editor.isActive("bold")
-              ? "bg-blue-500/20 dark:bg-blue-500/30 text-blue-700 dark:text-blue-300 shadow-sm"
-              : "text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50"
-          }`}
+          className="px-3 py-1.5 text-sm font-bold transition-all duration-200"
+          style={editor.isActive("bold") ? {
+            background: 'rgba(59, 130, 246, 0.2)',
+            color: 'rgb(29, 78, 216)',
+            borderRadius: '8px',
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)'
+          } : {
+            color: 'rgb(75, 85, 99)',
+            borderRadius: '8px'
+          }}
         >
           B
         </button>
@@ -34,11 +50,16 @@ export default function EditorToolbar({
         <button
           onClick={() => editor.chain().focus().toggleItalic().run()}
           disabled={!editor.can().chain().focus().toggleItalic().run()}
-          className={`px-3 py-1.5 text-sm font-medium italic rounded-md transition-all duration-200 ${
-            editor.isActive("italic")
-              ? "bg-blue-500/20 dark:bg-blue-500/30 text-blue-700 dark:text-blue-300 shadow-sm"
-              : "text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50"
-          }`}
+          className="px-3 py-1.5 text-sm font-medium italic transition-all duration-200"
+          style={editor.isActive("italic") ? {
+            background: 'rgba(59, 130, 246, 0.2)',
+            color: 'rgb(29, 78, 216)',
+            borderRadius: '8px',
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)'
+          } : {
+            color: 'rgb(75, 85, 99)',
+            borderRadius: '8px'
+          }}
         >
           I
         </button>
@@ -47,7 +68,14 @@ export default function EditorToolbar({
       <div className="flex-1" />
 
       {/* Word count */}
-      <span className="text-sm text-gray-600 dark:text-gray-400 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-gray-200/30 dark:border-gray-700/30">
+      <span className="text-sm px-3 py-1.5" style={{
+        color: 'rgb(75, 85, 99)',
+        background: 'rgba(255, 255, 255, 0.3)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        borderRadius: '10px',
+        border: '1px solid rgba(229, 231, 235, 0.3)'
+      }}>
         {editor.storage.characterCount?.words() || editor.getText().split(/\s+/).filter(Boolean).length} words
       </span>
 
@@ -55,11 +83,11 @@ export default function EditorToolbar({
       <button
         onClick={onGenerate}
         disabled={isGenerating}
-        className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 shadow-md ${
-          isGenerating
-            ? "bg-gray-300/50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 cursor-not-allowed backdrop-blur-sm"
-            : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-blue-500/50 dark:shadow-blue-400/30"
-        }`}
+        className="px-6 py-2.5 text-sm font-medium transition-all duration-200 glass-button"
+        style={{
+          borderRadius: '12px',
+          color: 'white'
+        }}
       >
         {isGenerating ? (
           <span className="flex items-center gap-2">

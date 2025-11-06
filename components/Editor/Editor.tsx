@@ -139,16 +139,35 @@ export default function Editor({ scenario }: EditorProps) {
   };
 
   return (
-    <div className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]">
+    <div className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]" style={{
+      background: 'linear-gradient(135deg, rgba(249, 250, 251, 1) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)'
+    }}>
       {/* Buffering overlay */}
       {isGenerating && (
-        <div className="fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-md z-50 flex items-center justify-center">
-          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl shadow-2xl px-8 py-6 flex items-center gap-4 border border-white/20 dark:border-gray-700/30">
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{
+          background: 'rgba(0, 0, 0, 0.2)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)'
+        }}>
+          <div className="flex items-center gap-4" style={{
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius: '24px',
+            padding: '24px 32px',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+            border: '1px solid rgba(255, 255, 255, 0.3)'
+          }}>
             <div className="relative w-12 h-12">
-              <div className="absolute inset-0 border-4 border-blue-200/30 dark:border-blue-800/30 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-transparent border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 rounded-full" style={{
+                border: '4px solid rgba(59, 130, 246, 0.2)'
+              }}></div>
+              <div className="absolute inset-0 rounded-full animate-spin" style={{
+                border: '4px solid transparent',
+                borderTopColor: 'rgb(37, 99, 235)'
+              }}></div>
             </div>
-            <span className="text-gray-700 dark:text-gray-300 font-medium text-lg">
+            <span className="font-medium text-lg" style={{ color: 'rgb(55, 65, 81)' }}>
               Generating...
             </span>
           </div>
@@ -156,13 +175,17 @@ export default function Editor({ scenario }: EditorProps) {
       )}
 
       {/* Page-width centered editor with liquid glass effect */}
-      <div className="max-w-[8.5in] mx-auto bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl shadow-2xl rounded-2xl border border-white/20 dark:border-gray-700/30 overflow-hidden">
+      <div className="max-w-[8.5in] mx-auto glass-panel" style={{
+        borderRadius: '24px',
+        overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)'
+      }}>
         <EditorToolbar
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           editor={editor}
         />
-        <div className="px-16 py-12 min-h-[11in]">
+        <div className="px-16 py-12" style={{ minHeight: '11in' }}>
           <EditorContent editor={editor} />
         </div>
       </div>
