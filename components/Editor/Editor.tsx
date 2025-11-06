@@ -347,7 +347,7 @@ export default function Editor({ scenario }: EditorProps) {
       const allInstructions = [...previousInstructions, ...instructions];
 
       // Extract context
-      const context = cleanText.slice(-2000);
+      const context = cleanText;
 
       // Extract definitions from last 300 words
       const words = cleanText.split(/\s+/).filter(Boolean);
