@@ -155,7 +155,7 @@ function applyEmphasis(editor: LexicalEditorType, words: string[]) {
  */
 function emphasisTransform(node: TextNode, words: string[]) {
   const text = node.getTextContent();
-  
+
   // If no words, we don't need the regex
   if (words.length === 0) return;
 
@@ -164,6 +164,11 @@ function emphasisTransform(node: TextNode, words: string[]) {
 
   // We need a way to "un-style" words if they are edited
   if (node.getStyle().includes("animation")) {
+    // Skip nodes that are auto-generated emphasis words (from LLM ::word:: syntax)
+    if (node.getStyle().includes("--auto-emphasis")) {
+      return; // Don't touch auto-generated emphasis words
+    }
+
     const isWordMatch = regex.test(text) && text.match(regex)?.length === 1 && text.match(regex)?.[0].length === text.length;
     if (!isWordMatch) {
       // The text was edited and is no longer *just* an emphasis word
@@ -451,9 +456,9 @@ export default function Editor({ scenario }: EditorProps) {
               const wordNode = $createTextNode(word);
 
               if (token.isEmphasis) {
-                // Apply emphasis animation (wave + aurora)
+                // Apply emphasis animation (wave + aurora) with auto-emphasis marker
                 wordNode.setStyle(
-                  "display: inline-block; animation: wave 2s ease-in-out infinite;"
+                  "display: inline-block; animation: wave 2s ease-in-out infinite; --auto-emphasis: true;"
                 );
               } else {
                 // Apply lavender color with fade-in animation
