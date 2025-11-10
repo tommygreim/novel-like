@@ -537,7 +537,7 @@ export default function Editor({ scenario }: EditorProps) {
 
   return (
     <div
-      className="px-6 pb-8 relative min-h-[calc(100vh-12rem)]"
+      className="px-3 md:px-6 pb-8 relative min-h-[calc(100vh-12rem)]"
       style={{
         background:
           "linear-gradient(135deg, rgba(249, 250, 251, 1) 0%, rgba(239, 246, 255, 0.6) 50%, rgba(245, 243, 255, 0.6) 100%)",
@@ -546,7 +546,7 @@ export default function Editor({ scenario }: EditorProps) {
       <div
         className="max-w-[8.5in] mx-auto glass-panel"
         style={{
-          borderRadius: "24px",
+          borderRadius: "16px",
           overflow: "hidden",
           boxShadow: "0 20px 60px rgba(0, 0, 0, 0.1)",
         }}
@@ -557,7 +557,7 @@ export default function Editor({ scenario }: EditorProps) {
           onMaxWordsChange={setMaxWords}
         />
 
-        <div className="px-16 py-12" style={{ minHeight: "11in", position: "relative" }}>
+        <div className="px-4 md:px-16 py-6 md:py-12" style={{ minHeight: "500px", position: "relative" }}>
           <LexicalComposer initialConfig={initialConfig}>
             <div style={{ position: "relative" }}>
               <RichTextPlugin
@@ -605,17 +605,17 @@ export default function Editor({ scenario }: EditorProps) {
 
       {/* Floating Generate Panel */}
       <div
-        className="fixed bottom-8 right-8 z-50 glass-panel"
+        className="fixed bottom-4 md:bottom-8 right-4 md:right-8 left-4 md:left-auto z-50 glass-panel"
         style={{
           borderRadius: "16px",
-          padding: "16px",
+          padding: "12px md:16px",
           boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
         }}
       >
         <button
           onClick={handleGenerate}
           disabled={isGenerating}
-          className="px-6 py-3 text-sm font-medium transition-all duration-200 glass-button"
+          className="w-full md:w-auto px-6 py-3 text-sm font-medium transition-all duration-200 glass-button"
           style={{
             borderRadius: "12px",
             color: "white",
@@ -624,7 +624,7 @@ export default function Editor({ scenario }: EditorProps) {
           }}
         >
           {isGenerating ? (
-            <span className="flex items-center gap-2">
+            <span className="flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"

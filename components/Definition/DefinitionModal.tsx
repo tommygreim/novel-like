@@ -106,7 +106,7 @@ export default function DefinitionModal({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50"
+      className="fixed inset-0 flex items-center justify-center z-50 p-4"
       style={{
         background: "rgba(0, 0, 0, 0.4)",
         backdropFilter: "blur(12px)",
@@ -115,24 +115,24 @@ export default function DefinitionModal({
       onClick={onClose}
     >
       <div
-        className="max-w-md w-full mx-4 glass-panel"
+        className="max-w-md w-full glass-panel max-h-[90vh] overflow-y-auto"
         style={{
-          borderRadius: "24px",
+          borderRadius: "16px",
           boxShadow: "0 20px 60px rgba(0, 0, 0, 0.2)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="px-8 py-5"
+          className="px-4 md:px-8 py-4 md:py-5 sticky top-0 z-10 glass-panel"
           style={{
             borderBottom: "1px solid rgba(229, 231, 235, 0.5)",
             background:
               "linear-gradient(to right, rgba(255, 255, 255, 0.4), rgba(249, 250, 251, 0.4))",
-            borderRadius: "24px 24px 0 0",
+            borderRadius: "16px 16px 0 0",
           }}
         >
           <h2
-            className="text-xl font-semibold"
+            className="text-lg md:text-xl font-semibold truncate"
             style={{
               background:
                 "linear-gradient(135deg, rgb(37, 99, 235), rgb(126, 34, 206))",
@@ -145,9 +145,9 @@ export default function DefinitionModal({
           </h2>
         </div>
 
-        <div className="px-8 py-6 space-y-5">
+        <div className="px-4 md:px-8 py-4 md:py-6 space-y-4 md:space-y-5">
           <div>
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
               <label
                 htmlFor="definition"
                 className="text-sm font-medium"
@@ -219,18 +219,18 @@ export default function DefinitionModal({
         </div>
 
         <div
-          className="px-8 py-5 flex justify-between gap-3"
+          className="px-4 md:px-8 py-4 md:py-5 flex flex-col sm:flex-row justify-between gap-2 sm:gap-3 sticky bottom-0 glass-panel"
           style={{
             borderTop: "1px solid rgba(229, 231, 235, 0.5)",
             background:
               "linear-gradient(to right, rgba(249, 250, 251, 0.4), rgba(255, 255, 255, 0.4))",
-            borderRadius: "0 0 24px 24px",
+            borderRadius: "0 0 16px 16px",
           }}
         >
           {existingDefinition && (
             <button
               onClick={handleDelete}
-              className="px-5 py-2.5 text-sm font-medium transition-all duration-200"
+              className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium transition-all duration-200 order-3 sm:order-1"
               style={{
                 background: "linear-gradient(135deg, rgb(239, 68, 68), rgb(220, 38, 38))",
                 borderRadius: "12px",
@@ -241,10 +241,10 @@ export default function DefinitionModal({
               Delete
             </button>
           )}
-          <div className="flex-1" />
+          <div className="hidden sm:block flex-1" />
           <button
             onClick={onClose}
-            className="px-5 py-2.5 text-sm font-medium transition-all duration-200"
+            className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium transition-all duration-200 order-1 sm:order-2"
             style={{
               background: "rgba(255, 255, 255, 0.5)",
               backdropFilter: "blur(10px)",
@@ -259,7 +259,7 @@ export default function DefinitionModal({
           <button
             onClick={handleSave}
             disabled={!definition.trim()}
-            className="px-5 py-2.5 text-sm font-medium transition-all duration-200"
+            className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium transition-all duration-200 order-2 sm:order-3"
             style={{
               background: definition.trim()
                 ? "linear-gradient(135deg, rgb(37, 99, 235), rgb(126, 34, 206))"

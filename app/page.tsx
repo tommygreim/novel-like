@@ -19,15 +19,15 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto">
         {/* Floating Header */}
-        <header className="px-6 py-6">
+        <header className="px-3 md:px-6 py-4 md:py-6">
           <div className="glass-panel" style={{
-            borderRadius: '24px',
-            padding: '16px 32px',
+            borderRadius: '16px',
+            padding: '12px 16px',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)'
           }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-8">
-                <h1 className="text-2xl font-bold" style={{
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-8 w-full sm:w-auto">
+                <h1 className="text-xl md:text-2xl font-bold" style={{
                   background: 'linear-gradient(135deg, rgb(37, 99, 235), rgb(126, 34, 206))',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -37,7 +37,7 @@ export default function Home() {
                 </h1>
 
                 {/* Tab Navigation */}
-                <div className="flex gap-2 p-1" style={{
+                <div className="flex gap-1 sm:gap-2 p-1 w-full sm:w-auto" style={{
                   background: 'rgba(243, 244, 246, 0.6)',
                   backdropFilter: 'blur(10px)',
                   WebkitBackdropFilter: 'blur(10px)',
@@ -45,7 +45,7 @@ export default function Home() {
                 }}>
                   <button
                     onClick={() => setActiveTab("editor")}
-                    className="px-6 py-2 text-sm font-medium transition-all duration-200"
+                    className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-xs sm:text-sm font-medium transition-all duration-200"
                     style={activeTab === "editor" ? {
                       background: 'white',
                       color: 'rgb(37, 99, 235)',
@@ -60,7 +60,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => setActiveTab("scenario")}
-                    className="px-6 py-2 text-sm font-medium transition-all duration-200"
+                    className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-xs sm:text-sm font-medium transition-all duration-200"
                     style={activeTab === "scenario" ? {
                       background: 'white',
                       color: 'rgb(37, 99, 235)',
@@ -78,7 +78,7 @@ export default function Home() {
 
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="px-5 py-2.5 text-sm font-medium transition-all duration-200"
+                className="px-4 md:px-5 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all duration-200 w-full sm:w-auto"
                 style={{
                   background: 'rgba(255, 255, 255, 0.8)',
                   backdropFilter: 'blur(10px)',
