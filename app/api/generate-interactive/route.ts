@@ -23,6 +23,11 @@ ${scenario}
 
 Write the opening of the story (2-3 paragraphs). Make it engaging and end at a point where the protagonist must make a decision.
 
+IMPORTANT FORMATTING RULES FOR DIALOGUE:
+- When dialogue first occurs after extended description, place a paragraph break before the dialogue
+- Whenever the speaker changes during dialogue scenes, place a paragraph break before the new speaker's dialogue
+- Each new speaker should start on a new line/paragraph
+
 Then, provide exactly 3 choices for what the protagonist could do next, plus indicate that there's a custom option. Format your response EXACTLY as follows:
 
 STORY:
@@ -35,6 +40,11 @@ CHOICES:
 4. Custom action`;
       } else {
         prompt = `You are a creative storyteller. Start an interactive fantasy adventure story. Write the opening (2-3 paragraphs). Make it engaging and end at a point where the protagonist must make a decision.
+
+IMPORTANT FORMATTING RULES FOR DIALOGUE:
+- When dialogue first occurs after extended description, place a paragraph break before the dialogue
+- Whenever the speaker changes during dialogue scenes, place a paragraph break before the new speaker's dialogue
+- Each new speaker should start on a new line/paragraph
 
 Then, provide exactly 3 choices for what the protagonist could do next, plus indicate that there's a custom option. Format your response EXACTLY as follows:
 
@@ -60,6 +70,11 @@ ${currentStory}
 The user chose to: ${userChoice}
 
 Continue the story (2-3 paragraphs) based on their choice. Make it engaging and end at a point where they must make another decision.
+
+IMPORTANT FORMATTING RULES FOR DIALOGUE:
+- When dialogue first occurs after extended description, place a paragraph break before the dialogue
+- Whenever the speaker changes during dialogue scenes, place a paragraph break before the new speaker's dialogue
+- Each new speaker should start on a new line/paragraph
 
 Then, provide exactly 3 new choices for what they could do next, plus indicate that there's a custom option. Format your response EXACTLY as follows:
 
