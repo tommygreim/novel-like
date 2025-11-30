@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import Editor from "@/components/Editor/Editor";
+import InteractiveStory from "@/components/InteractiveStory/InteractiveStory";
 import SettingsModal from "@/components/Settings/SettingsModal";
 import ScenarioPanel, { ScenarioData } from "@/components/Scenario/ScenarioPanel";
 
-type Tab = "editor" | "scenario";
+type Tab = "story" | "scenario";
 
 export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("editor");
+  const [activeTab, setActiveTab] = useState<Tab>("story");
   const [scenario, setScenario] = useState<ScenarioData | null>(null);
 
   return (
@@ -44,9 +44,9 @@ export default function Home() {
                   borderRadius: '12px'
                 }}>
                   <button
-                    onClick={() => setActiveTab("editor")}
+                    onClick={() => setActiveTab("story")}
                     className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-xs sm:text-sm font-medium transition-all duration-200"
-                    style={activeTab === "editor" ? {
+                    style={activeTab === "story" ? {
                       background: 'white',
                       color: 'rgb(37, 99, 235)',
                       borderRadius: '10px',
@@ -56,7 +56,7 @@ export default function Home() {
                       borderRadius: '10px'
                     }}
                   >
-                    Editor
+                    Story
                   </button>
                   <button
                     onClick={() => setActiveTab("scenario")}
@@ -96,7 +96,7 @@ export default function Home() {
         </header>
 
         {/* Tab Content */}
-        {activeTab === "editor" && <Editor scenario={scenario} />}
+        {activeTab === "story" && <InteractiveStory scenario={scenario} />}
         {activeTab === "scenario" && (
           <ScenarioPanel onScenarioChange={setScenario} />
         )}
